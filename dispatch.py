@@ -95,6 +95,15 @@ class Policy:
     sla_gain: float = 2.0        # how hard projected lateness raises the margin bar
     sla_prior_n: int = 120       # orders assumed on time, so early noise cannot trip the controller
     decline_mult: float = 4.0    # a declined option is quoted at this x list
+    # Day capacity: legs due (by deadline day) against the whole roster. Fridays and the last Monday
+    # collect the next-day and 3-day work of the days before them, and the flu can hit any day.
+    day_cap: float = 0.0         # legs per day per 100 drivers before P(late) rises (0 = off)
+    day_late: float = 0.45       # extra P(late) per unit of day overload
+    day_pend: float = 0.6        # an open quote counts as this share of its legs
+    # Shock detector: a burst of night drops (the flu) means fewer drivers today.
+    flu_drops: int = 0           # drops 00:00-03:00 today that mark a flu day (0 = off)
+    flu_cap: float = 0.7         # today's day capacity is multiplied by this on a flu day
+    flu_fee: float = 0.0         # on a flu day, today's unbooked gigs go at least at this x typical fee at once (0 = off)
 
 
 def step_lookup(table: tuple, x: float) -> float:
@@ -135,6 +144,9 @@ class Dispatcher(Desk):
         self.timers: list[tuple[int, str]] = []  # (minute, order id): held orders to post later
         self.trust: dict[str, int] = {}  # dealer -> orders delivered on time, as the rules count it (max 25, halved on a late one)
         self.settled: set[str] = set()
+        self.pend_day: dict[str, tuple[int, float]] = {}  # request id -> (deadline day, weight) of an open quote
+        self.night_drops: dict[int, int] = {}            # day -> gig drops between 00:00 and 03:00
+        self.flu_days: set[int] = set()
 
     # ---------- the SLA controller ----------
     def sla_pressure(self) -> float:
@@ -201,6 +213,68 @@ class Dispatcher(Desk):
         over = (self.load.get(key, 0.0) + len(request["legs"])) / cap - 1
         return self.p.cong_late * max(0.0, over)
 
+    # ---------- day capacity ----------
+    def day_loads(self) -> dict[int, float]:
+        """Legs due by deadline day: won orders, and open quotes at their weight."""
+        out: dict[int, float] = {}
+        for o in self.orders.values():
+            d = o["deadline"] // DAY
+            out[d] = out.get(d, 0.0) + len(o["legs"])
+        for d, w in self.pend_day.values():
+            out[d] = out.get(d, 0.0) + w
+        return out
+
+    def day_capacity(self, day: int) -> float:
+        cap = self.p.day_cap * len(getattr(self, "roster", []) or []) / 100
+        return cap * (self.p.flu_cap if day in self.flu_days else 1.0)
+
+    def day_risk(self, loads: dict[int, float], day: int, legs: int) -> float:
+        if not self.p.day_cap:
+            return 0.0
+        cap = self.day_capacity(day)
+        if cap <= 0:
+            return 0.0
+        return self.p.day_late * max(0.0, (loads.get(day, 0.0) + legs) / cap - 1)
+
+    def note_drop(self, at: int, gig_id: Optional[str] = None) -> None:
+        """Counts night drops; a burst of them marks today a flu day. On a flu day a dropped gig of today goes up at once."""
+        day = at // DAY
+        if at % DAY < 3 * HOUR:
+            self.night_drops[day] = self.night_drops.get(day, 0) + 1
+            if self.p.flu_drops and day not in self.flu_days and self.night_drops[day] >= self.p.flu_drops:
+                self.flu_days.add(day)
+                self.stats["flu_day"] = day
+                return self.on_flu(day)
+        if day in self.flu_days and gig_id is not None:
+            self.on_flu(day, {gig_id})
+
+    def on_flu(self, day: int, only: Optional[set] = None) -> None:
+        """Raises today's unbooked gigs at once, so the drivers still working see a fee worth the extra trip."""
+        if not self.p.flu_fee:
+            return
+        end, seen = (day + 1) * DAY, set()
+        for oid, o in list(self.orders.items()):
+            if o["status"] != "waiting" or o["lastPickupAt"] >= end or oid in self.urgent:
+                continue
+            for gig_id in self.gigs_of(oid):
+                if gig_id in self.booked or gig_id not in self.posts or gig_id in seen or (only is not None and gig_id not in only):
+                    continue
+                seen.add(gig_id)
+                post = self.posts[gig_id]
+                ref = sum(self.requests[s["orderId"]]["referenceFeeCents"] / len(self.orders[s["orderId"]]["legs"])
+                          for s in post["stops"] if s["kind"] == "pickup" and s["orderId"] in self.orders)
+                if not ref:
+                    continue
+                if len({s["orderId"] for s in post["stops"]}) > 1:
+                    ref *= self.p.pair_alpha_return
+                last = min(self.orders[s["orderId"]]["lastPickupAt"] for s in post["stops"] if s["orderId"] in self.orders)
+                sched = self.schedule(ref, last)
+                floor = int(ref * self.p.flu_fee * self.fee_scale)
+                sched = [{"at": s["at"], "feeCents": max(s["feeCents"], floor)} for s in sched]
+                sched = [s for i, s in enumerate(sched) if i == 0 or s["feeCents"] > sched[i - 1]["feeCents"]]
+                self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": sched})
+                self.stats["flu_reprice"] = self.stats.get("flu_reprice", 0) + 1
+
     def add_load(self, request_id: str, outcome: Optional[bool]) -> None:
         if request_id not in self.pending:
             return
@@ -254,10 +328,13 @@ class Dispatcher(Desk):
         comp = math.exp(self.log_comp + lane) * boost
         prices: dict[str, int] = {}
         best_lr = None
+        loads = self.day_loads() if p.day_cap else {}
+        nlegs = len(request["legs"])
         for o in request["options"]:
             lst = o["listPriceCents"] / 100
             slack = self.slack_hours(request, o["deadline"])
-            sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"])
+            sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"]) \
+                + self.day_risk(loads, o["deadline"] // DAY, nlegs)
             fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
             pl = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
             best, best_x = -1e9, None
@@ -282,6 +359,9 @@ class Dispatcher(Desk):
             key, w = self.load_key(request), 0.6 * len(request["legs"])
             self.pending[request["id"]] = (key, w)
             self.load[key] = self.load.get(key, 0.0) + w
+            if p.day_cap:  # the open quote weighs on the day of its fastest option offered
+                kind = next(o for o in request["options"] if prices[o["kind"]] < o["listPriceCents"] * 3)
+                self.pend_day[request["id"]] = (kind["deadline"] // DAY, p.day_pend * nlegs)
             # Learn the competitor only where we offered the dealer's fastest option: without it,
             # dealers turn to the competitor at any price, and the estimate would sink.
             fastest = request["options"][0]
@@ -310,12 +390,16 @@ class Dispatcher(Desk):
         if event["kind"] == "order_won":
             self.learn(event["order"]["id"], True)
             self.add_load(event["order"]["id"], True)
+            self.pend_day.pop(event["order"]["id"], None)
         elif event["kind"] == "order_lost":
             self.learn(event["requestId"], False)
             self.add_load(event["requestId"], False)
+            self.pend_day.pop(event["requestId"], None)
         if event["kind"] == "forecast":
             self.snow.append((event["from"], event["to"], set(event["placeIds"])))
         super().handle(event)
+        if event["kind"] == "gig_dropped":
+            self.note_drop(event["at"], event["gigId"])
         if self.p.offers and event["kind"] == "deadline_close":
             self.offer_order(event["orderId"])
         elif self.p.offers and event["kind"] == "offer_answered":
