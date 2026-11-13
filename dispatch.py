@@ -22,6 +22,25 @@ from spread.starter import DAY, HOUR, WAKE_ON, Desk, steep, undelivered
 from spread.types import FeeStep, Order, PriceRequest
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
+LIVE: set = set()  # practice worlds this process created and has not finished: deleted on exit
+
+
+def _cleanup() -> None:
+    if not LIVE:
+        return
+    client = Client()
+    for wid in list(LIVE):
+        try:
+            client.world(wid).delete()
+            print(f"cleanup: deleted unfinished practice world {wid}", file=sys.stderr)
+        except SpreadError:
+            pass
+
+
+import atexit, signal  # noqa: E401,E402
+atexit.register(_cleanup)
+signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
+signal.signal(signal.SIGHUP, lambda *_: sys.exit(1))
 OPTIONS = ("same_day", "next_day", "within_3_days")
 
 
@@ -41,7 +60,13 @@ class Policy:
     exp_fee: tuple = ((4, 2.0), (8, 1.55), (16, 1.25), (30, 1.05), (1e9, 0.95))
     p_late: tuple = ((4, 0.6), (8, 0.3), (16, 0.12), (30, 0.06), (1e9, 0.03))
     late_cost: float = 0.45      # refund + lost trust, as a share of the price
-    km_late: float = 0.0005      # extra P(late) per km
+    late_shadow: float = 80.0    # euros: the shadow price of the 90% minimum, per expected late order
+    km_late: float = 0.0         # extra P(late) per km (now inside the supply model)
+    # P(late) from driver supply, fitted on v5 runs: logit = b0 + bp*log1p(S_pickup) + bd*log1p(S_delivery) + bk*km/100,
+    # S = sum over towns of resident drivers * exp(-road minutes / 60).
+    sup_b: tuple = (4.23, -0.816, -0.469, -0.425)
+    sup_base: float = 0.045      # the model's typical P(late), already in the slack table
+    sup_fee: float = 0.6         # fee uplift per unit of supply-model P(late)
     max_km: float = 520.0        # decline longer lanes
     min_margin: float = 8.0      # euros of expected margin to quote an option at all
     # SLA controller.
@@ -72,6 +97,7 @@ class Road:
 class Dispatcher(Desk):
     def __init__(self, world, level, now, policy: Policy, road: Road):
         super().__init__(world, level, now)
+        self.supply: dict[str, float] = {}
         self.p, self.road = policy, road
         self.log_comp = math.log(policy.comp0)
         self.day_of_comp = now // DAY
@@ -103,6 +129,25 @@ class Dispatcher(Desk):
         gigs = self.gigs_of(order_id)
         return bool(gigs) and all(g in self.booked for g in gigs)
 
+    # ---------- driver supply ----------
+    def init_supply(self, roster: list[dict]) -> None:
+        homes: dict[str, int] = {}
+        for d in roster:
+            homes[d["homePlaceId"]] = homes.get(d["homePlaceId"], 0) + 1
+        places = {a for a, _ in self.road.r}
+        self.supply = {p: sum(n * math.exp(-self.road.minutes(h, p) / 60) for h, n in homes.items()) for p in places}
+
+    def supply_late(self, request: PriceRequest) -> float:
+        if not self.supply:
+            return self.p.sup_base
+        b0, bp, bd, bk = self.p.sup_b
+        worst = 0.0
+        for l in request["legs"]:
+            a, b = l["pickup"]["placeId"], l["delivery"]["placeId"]
+            z = b0 + bp * math.log1p(self.supply.get(a, 0)) + bd * math.log1p(self.supply.get(b, 0)) + bk * self.road.km(a, b) / 100
+            worst = max(worst, 1 / (1 + math.exp(-z)))
+        return worst
+
     # ---------- quotes ----------
     def slack_hours(self, request: PriceRequest, deadline: int) -> float:
         """Hours from posting (at respondBy) to the last pickup that still makes the deadline."""
@@ -130,14 +175,15 @@ class Dispatcher(Desk):
         for o in request["options"]:
             lst = o["listPriceCents"] / 100
             slack = self.slack_hours(request, o["deadline"])
-            fee = ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0)
-            pl = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + pressure)
+            sl = self.supply_late(request)
+            fee = ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
+            pl = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
             best, best_x = -1e9, None
             for i in range(60):
                 x = 0.85 + i * 0.02  # price as x list
                 price = lst * x
                 win = 1 / (1 + math.exp(p.slope * (math.log(x) - math.log(comp))))
-                margin = price * (1 - pl * p.late_cost) - fee
+                margin = price * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
             if best_x is not None and best_margin >= bar:
@@ -242,6 +288,7 @@ class Dispatcher(Desk):
 def play_practice(world, level: int, policy: Policy, road: Road) -> Dispatcher:
     snap = world.snapshot()
     desk, ends = Dispatcher(world, level, snap["now"], policy, road), snap["endsAt"]
+    desk.init_supply(world.roster())
     while desk.now < ends:
         actions, desk.outbox = desk.outbox, []
         step = world.advance(until=WAKE_ON + ["order_lost"], max=min(ends, (desk.now // DAY + 1) * DAY, max(desk.now + 1, desk.next_timer())), actions=actions)
@@ -257,6 +304,7 @@ def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dic
     client = Client()
     road = Road(client.map())
     world = client.create(level=level, seed=seed)
+    LIVE.add(world.id)
     t0 = time.time()
     try:
         desk = play_practice(world, level, policy, road)
@@ -266,6 +314,7 @@ def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dic
         except SpreadError:
             pass
         raise
+    LIVE.discard(world.id)
     if keep:
         import explore
         explore.save(client, world, f"{tag}-{seed}", level, [])
@@ -302,7 +351,7 @@ def main() -> None:
     ap.add_argument("--level", type=int, default=8)
     ap.add_argument("--seeds", type=int, default=6)
     ap.add_argument("--prefix", default="ev")
-    ap.add_argument("--tag", default="v5")
+    ap.add_argument("--tag", default="v7")
     ap.add_argument("--parallel", type=int, default=6)
     ap.add_argument("--keep", action="store_true", help="save the reveal for refitting")
     ap.add_argument("--set", nargs="*", default=[], help="policy overrides, e.g. fee_open=0.9 min_margin=5")
