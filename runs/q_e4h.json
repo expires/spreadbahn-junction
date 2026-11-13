@@ -1,0 +1,135 @@
+{
+ "policy": {
+  "comp0": 1.37,
+  "slope": 8.7,
+  "comp_lr": 0.02,
+  "comp_lo": 1.22,
+  "comp_hi": 1.6,
+  "fee_open": 0.9,
+  "fee_steps": [
+   [
+    24,
+    1.05
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    10,
+    1.55
+   ],
+   [
+    6,
+    2.0
+   ]
+  ],
+  "hold_hours": 36.0,
+  "pair_enabled": 0.0,
+  "pair_wait": 45.0,
+  "bundle_base_ratio": 0.88,
+  "bundle_max_drive": 540.0,
+  "bundle_max_link": 75.0,
+  "bundle_min_lead_h": 3.0,
+  "bundle_max_dead_gap": 30.0,
+  "exp_fee": [
+   [
+    4,
+    2.0
+   ],
+   [
+    8,
+    1.55
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    30,
+    1.05
+   ],
+   [
+    1000000000.0,
+    0.95
+   ]
+  ],
+  "p_late": [
+   [
+    4,
+    0.6
+   ],
+   [
+    8,
+    0.3
+   ],
+   [
+    16,
+    0.12
+   ],
+   [
+    30,
+    0.06
+   ],
+   [
+    1000000000.0,
+    0.03
+   ]
+  ],
+  "late_cost": 0.45,
+  "late_shadow": 80.0,
+  "km_late": 0.0,
+  "sup_b": [
+   4.23,
+   -0.816,
+   -0.469,
+   -0.425
+  ],
+  "sup_base": 0.045,
+  "sup_fee": 0.6,
+  "max_km": 520.0,
+  "min_margin": 8.0,
+  "price_mult": 1.0,
+  "min_slack_h": 0.0,
+  "supply_gate": 2.0,
+  "rescue_h": 0.0,
+  "rescue_mult": 1.35,
+  "retry_raise": 0.18,
+  "use_quote_model": 0.0,
+  "ev_bar": 0.0,
+  "steer": 0.0,
+  "gate_pl": 0.0,
+  "use_model_pl": 0.0,
+  "sla_target": 0.94,
+  "sla_gain": 2.0,
+  "sla_prior_n": 120,
+  "decline_mult": 4.0
+ },
+ "results": [
+  {
+   "seed": "ev-4",
+   "world": "w7410494a9a3ef15126a9",
+   "secs": 46,
+   "comp": 1.233,
+   "pairs": 0,
+   "singles": 0,
+   "quoted": 877,
+   "declined": 159,
+   "won": 427,
+   "lost": 255,
+   "d_margin": 57,
+   "d_km": 102,
+   "rescues": 68,
+   "expired": 39,
+   "urgent": 84,
+   "refused": 3,
+   "marginCents": 1169762,
+   "revenueCents": 5767175,
+   "marginShare": 0.20283102212088241,
+   "wonOrders": 501,
+   "onTimeShare": 0.8942115768463074,
+   "undeliveredShare": 0.005988023952095809,
+   "ranked": false
+  }
+ ]
+}

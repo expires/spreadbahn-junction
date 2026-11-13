@@ -86,6 +86,32 @@ def _matrix(rows: list[dict]) -> np.ndarray:
     return np.array([[row[f] for f in FEATURES] for row in rows], dtype=float)
 
 
+class SupplyLateModel:
+    """P(late) on supply.order_features() rows (the 24 features of the staff fit).
+
+    The shipped data/fits/supply.json lateness block predicts ~0 because its standardisation was
+    not saved; data/fits/late2.json is the same feature set refit with the mean/scale kept
+    (OOF AUC 0.789, calibrated deciles). This wrapper is drop-in for supply.LatenessModel.
+    """
+
+    def __init__(self, blob: dict):
+        self.features = list(blob["features"])
+        self.mean = np.array(blob["mean"], dtype=float)
+        self.scale = np.array(blob["scale"], dtype=float)
+        self.scale[self.scale == 0] = 1.0
+        self.coef = np.array(blob["coef"], dtype=float)
+        self.intercept = float(blob["intercept"])
+
+    @classmethod
+    def load(cls, path: str = os.path.join(DATA, "fits", "late2.json")) -> "SupplyLateModel":
+        return cls(json.load(open(path)))
+
+    def p_late(self, feats: dict) -> float:
+        x = np.array([float(feats.get(name, 0.0)) for name in self.features])
+        z = self.intercept + float(((x - self.mean) / self.scale) @ self.coef)
+        return 1.0 / (1.0 + math.exp(-max(-30.0, min(30.0, z))))
+
+
 @dataclass
 class LateModel:
     mean: np.ndarray
