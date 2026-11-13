@@ -76,6 +76,8 @@ class Policy:
     offers: bool = False
     low_fee_scale: float = 0.75  # levels 1-3 (no competitor, many drivers): fees and fee estimates scale by this
     mid_fee_scale: float = 0.88  # levels 4-6
+    snow_late: float = 0.0       # extra P(late) for a leg touching a snowed place on its pickup day
+    snow_fee: float = 0.15       # fee uplift for such a leg
     offer_fee: float = 2.0       # x typical fee
     offer_reach: int = 150       # only drivers living within this many road minutes of the pickup
     max_km: float = 520.0        # decline longer lanes
@@ -110,6 +112,7 @@ class Dispatcher(Desk):
         super().__init__(world, level, now)
         self.supply: dict[str, float] = {}
         self.load: dict[tuple, float] = {}       # (pickup place, day) -> expected cars
+        self.snow: list[tuple] = []              # (from, to, set of place ids) from forecasts
         self.pending: dict[str, tuple] = {}      # request id -> (key, weight) of an open quote
         self.p, self.road = policy, road
         # The competitor's price level by level, from the rules: near list up to 6, 1.12-1.38 at 7, 1.26-1.54 at 8.
@@ -167,6 +170,17 @@ class Dispatcher(Desk):
             z = b0 + bp * math.log1p(self.supply.get(a, 0)) + bd * math.log1p(self.supply.get(b, 0)) + bk * self.road.km(a, b) / 100
             worst = max(worst, 1 / (1 + math.exp(-z)))
         return worst
+
+    def snow_risk(self, request: PriceRequest, deadline: int) -> float:
+        """Snow slows driving and keeps drivers home: a leg touching a snowed place between its pickup and deadline is riskier."""
+        if not self.snow or not self.p.snow_late:
+            return 0.0
+        for leg in request["legs"]:
+            start = leg["pickup"]["window"]["from"]
+            places = {leg["pickup"]["placeId"], leg["delivery"]["placeId"]}
+            if any(f < deadline and t > start and places & ps for f, t, ps in self.snow):
+                return self.p.snow_late
+        return 0.0
 
     def load_key(self, request: PriceRequest) -> tuple:
         leg = request["legs"][0]
@@ -233,7 +247,7 @@ class Dispatcher(Desk):
         for o in request["options"]:
             lst = o["listPriceCents"] / 100
             slack = self.slack_hours(request, o["deadline"])
-            sl = self.supply_late(request) + self.congestion(request)
+            sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"])
             fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
             pl = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
             best, best_x = -1e9, None
@@ -282,6 +296,8 @@ class Dispatcher(Desk):
         elif event["kind"] == "order_lost":
             self.learn(event["requestId"], False)
             self.add_load(event["requestId"], False)
+        if event["kind"] == "forecast":
+            self.snow.append((event["from"], event["to"], set(event["placeIds"])))
         super().handle(event)
         if self.p.offers and event["kind"] == "deadline_close":
             self.offer_order(event["orderId"])
@@ -484,6 +500,7 @@ def rebuild(world, policy: Policy, road: Road, level: int) -> tuple[Dispatcher, 
     desk.rejoin(snap, history)
     for order_id in list(desk.orders):
         desk.settle(order_id)
+    desk.snow = [(e["from"], e["to"], set(e["placeIds"])) for e in history if e["kind"] == "forecast"]
     quotes = {}
     for e in history:  # replay the competitor learner on the outcomes we saw
         if e["kind"] == "price_request":
