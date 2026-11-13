@@ -45,7 +45,6 @@ atexit.register(_cleanup)
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
 signal.signal(signal.SIGHUP, lambda *_: sys.exit(1))
 OPTIONS = ("same_day", "next_day", "within_3_days")
-PLAIN = starter.Retry()  # the default of Dispatcher.post: a first post, not a retry after a failed visit
 
 
 @dataclass(frozen=True)
@@ -333,26 +332,29 @@ class Dispatcher(Desk):
         on_time = all(t <= o["deadline"] for t in o["deliveredAt"])
         self.trust[d] = min(25, self.trust.get(d, 0) + 1) if on_time else self.trust.get(d, 0) // 2
 
-    def post(self, order, legs, retry=PLAIN) -> None:
-        # After a restart, rejoin posts every waiting order at once: keep the hold for those that win() would hold.
-        if self.rejoining and retry is PLAIN and order["id"] not in self.urgent and legs == undelivered(order):
-            post_at = order["lastPickupAt"] - int(self.p.hold_hours * HOUR)
-            if post_at > self.now + 30:
-                self.timers.append((post_at, order["id"]))
-                return
+    def post(self, order, legs, retry=starter.Retry()) -> None:
         if legs:
             super().post(order, legs, retry)
 
     def rejoin(self, snapshot, history) -> None:
-        self.rejoining = True
+        """The kit's rejoin posts every waiting order without a gig at once. Orders that win() would still hold go back
+        on a timer instead. Its first posts come as post(order, legs); a retry after a failed visit passes a Retry."""
+        post = self.post
+
+        def first_post(order, legs, *retry):
+            post_at = order["lastPickupAt"] - int(self.p.hold_hours * HOUR)
+            if not retry and order["id"] not in self.urgent and post_at > self.now + 30:
+                self.timers.append((post_at, order["id"]))
+            else:
+                post(order, legs, *retry)
+        self.post = first_post
         try:
             super().rejoin(snapshot, history)
         finally:
-            self.rejoining = False
+            del self.post
 
     # ---------- sending: the live loop's IO ----------
     pacer = None        # the final's action bucket, set by play_live; None in practice (no limit)
-    rejoining = False
 
     def priority(self, action) -> int:
         """Quotes first (15 world minutes, 4.5 real seconds), then the gigs of orders past their deadline warning, then the rest.

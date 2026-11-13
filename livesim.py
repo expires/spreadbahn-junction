@@ -272,6 +272,19 @@ def cmd_bot(a) -> None:
         return res
     world.act = act
 
+    burst = faults.get("burst")
+    if burst:  # every ~S seconds, 120 filler actions land in the outbox at once (withdraws of no gig: refused, harmless; like a burst of posts)
+        orig_fire = mod.Dispatcher.fire_timers
+        next_burst = [time.monotonic() + burst]
+
+        def fire_timers(self):
+            if time.monotonic() >= next_burst[0]:
+                next_burst[0] = time.monotonic() + burst
+                rec(ev="fault", kind="burst")
+                self.outbox += [{"type": "withdraw", "gigId": f"FILL{k}"} for k in range(120)]
+            return orig_fire(self)
+        mod.Dispatcher.fire_timers = fire_timers
+
     orig_rebuild = mod.rebuild
 
     def rebuild(*args, **kw):
@@ -307,7 +320,7 @@ def parse_faults(spec: str) -> dict:
     out = {}
     for kv in filter(None, (spec or "").split(",")):
         k, v = kv.split("=")
-        out[k] = float(v) if k in ("drop", "stall") else int(v)
+        out[k] = float(v) if k in ("drop", "stall", "burst") else int(v)
     return out
 
 
@@ -510,6 +523,8 @@ def report(out: str) -> str:
         if r["ev"] != "act":
             continue
         for rid, ok, reason in r["quotes"]:
+            if rid.startswith("FILL"):  # burst filler
+                continue
             if ok and rid not in sent:
                 sent[rid] = r["t"]
             elif not ok:
@@ -617,7 +632,7 @@ def main() -> None:
     r.add_argument("--speed", type=float, default=1.0, help="x the final's pace")
     r.add_argument("--kill-at", default="", help="comma-separated world minutes: kill -9 the bot there and restart it")
     r.add_argument("--restart-delay", type=float, default=0.0)
-    r.add_argument("--faults", default="", help="drop=S,stall=S,bad=N,down=N (see faulty_websocket and SimClient)")
+    r.add_argument("--faults", default="", help="drop=S,stall=S,bad=N,down=N,burst=S (see faulty_websocket, SimClient, cmd_bot)")
     r.add_argument("--impl", default=os.path.join(ROOT, "dispatch.py"), help="the dispatch.py to rehearse")
     r.add_argument("--no-limits", action="store_true", help="do not emulate the final's buckets")
     r.add_argument("--bot-head-start", type=float, default=3.0, help="seconds the bot gets to rebuild before the clock starts")
