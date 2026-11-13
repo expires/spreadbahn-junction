@@ -62,6 +62,7 @@ class Policy:
     exp_fee: tuple = ((4, 2.0), (8, 1.55), (16, 1.25), (30, 1.05), (1e9, 0.95))
     p_late: tuple = ((4, 0.6), (8, 0.3), (16, 0.12), (30, 0.06), (1e9, 0.03))
     late_cost: float = 0.45      # refund + lost trust, as a share of the price
+    pl_scale: float = 0.6        # calibration multiplier on the modelled P(late)
     late_shadow: float = 80.0    # euros: the shadow price of the 90% minimum, per expected late order
     km_late: float = 0.0         # extra P(late) per km (now inside the supply model)
     # P(late) from driver supply, fitted on v5 runs: logit = b0 + bp*log1p(S_pickup) + bd*log1p(S_delivery) + bk*km/100,
@@ -227,7 +228,7 @@ class Dispatcher(Desk):
         slack = self.slack_hours(request, o["deadline"])
         sl = self.supply_late(request) + self.congestion(request)
         fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
-        pl = min(0.95, step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base) + pressure)
+        pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base)) + pressure)
         margin = lst * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
         if km > p.max_km or margin < p.min_margin * (1 + p.sla_gain * pressure * 10):
             self.stats["declined"] += 1
@@ -262,7 +263,7 @@ class Dispatcher(Desk):
             slack = self.slack_hours(request, o["deadline"])
             sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"])
             fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
-            pl = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
+            pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base)) + pressure)
             best, best_x = -1e9, None
             for i in range(60):
                 x = 0.85 + i * 0.02  # price as x list
