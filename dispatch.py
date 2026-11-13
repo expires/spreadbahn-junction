@@ -84,7 +84,7 @@ class Policy:
     pair_hop: int = 45                # max road minutes from A's delivery to B's pickup
     pair_return: int = 45             # B ending within this of A's pickup counts as a return
     pair_chains: bool = False         # also pair cars whose second leg does not come back
-    snow_late: float = 0.0       # extra P(late) for a leg touching a snowed place on its pickup day
+    snow_late: float = 0.15      # extra P(late) for a leg touching a snowed place on its pickup day
     snow_fee: float = 0.15       # fee uplift for such a leg
     offer_fee: float = 2.0       # x typical fee
     offer_reach: int = 150       # only drivers living within this many road minutes of the pickup
