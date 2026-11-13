@@ -12,3 +12,10 @@ v7-lam120     ev-1  margin €    13,698   406 orders   94.6% on time  comp≈1.
 v7-lam120     ev-2  margin €    11,610   410 orders   95.1% on time  comp≈1.544  q/d=859/179 km/bar/mrg=106/0/73  41s
 v7-lam120     ev-4  margin €    14,779   460 orders   90.9% on time  comp≈1.258  q/d=871/165 km/bar/mrg=102/0/63  42s
 v7-lam120 MEAN margin €11,282/week  worst on-time 90.9%  ranked 6/6
+v7-lam200     ev-6  margin €     8,066   219 orders   97.3% on time  comp≈1.311  q/d=755/277 km/bar/mrg=104/0/173  33s
+v7-lam200     ev-5  margin €    12,187   325 orders   96.6% on time  comp≈1.39  q/d=830/202 km/bar/mrg=96/0/106  33s
+v7-lam200     ev-2  margin €    12,430   373 orders   96.0% on time  comp≈1.584  q/d=830/208 km/bar/mrg=106/0/102  35s
+v7-lam200     ev-1  margin €    13,118   367 orders   95.4% on time  comp≈1.314  q/d=812/223 km/bar/mrg=83/0/140  36s
+v7-lam200     ev-3  margin €     6,535   209 orders   96.7% on time  comp≈1.253  q/d=760/274 km/bar/mrg=86/0/188  37s
+v7-lam200     ev-4  margin €    15,481   437 orders   91.8% on time  comp≈1.288  q/d=846/190 km/bar/mrg=102/0/88  37s
+v7-lam200 MEAN margin €11,303/week  worst on-time 91.8%  ranked 6/6
