@@ -77,6 +77,13 @@ class Policy:
     low_fee_scale: float = 0.75  # levels 1-3 (no competitor, many drivers): fees and fee estimates scale by this
     mid_fee_scale: float = 0.88  # levels 4-6
     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
+    # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
+    combine: bool = True
+    pair_alpha_return: float = 0.75   # fee of a pair whose second car ends near the first's start, x (refA + refB)
+    pair_alpha_chain: float = 0.85    # any other feasible pair
+    pair_hop: int = 45                # max road minutes from A's delivery to B's pickup
+    pair_return: int = 45             # B ending within this of A's pickup counts as a return
+    pair_chains: bool = False         # also pair cars whose second leg does not come back
     snow_late: float = 0.0       # extra P(late) for a leg touching a snowed place on its pickup day
     snow_fee: float = 0.15       # fee uplift for such a leg
     offer_fee: float = 2.0       # x typical fee
@@ -331,8 +338,101 @@ class Dispatcher(Desk):
         self.trust[d] = min(25, self.trust.get(d, 0) + 1) if on_time else self.trust.get(d, 0) // 2
 
     def post(self, order, legs, retry=starter.Retry()) -> None:
-        if legs:
-            super().post(order, legs, retry)
+        if not legs:
+            return
+        if self.p.combine and self.level >= 3 and retry == starter.Retry() and self.pairable(order):
+            best = self.find_partner(order)
+            if best is not None:
+                return self.post_pair(*best)
+        super().post(order, legs, retry)
+
+    # ---------- multi-car gigs ----------
+    def pairable(self, o: Order) -> bool:
+        if len(o["legs"]) != 1 or any(t is not None for t in o["deliveredAt"]):
+            return False
+        leg = o["legs"][0]
+        return not (leg["pickup"]["privateAddress"] or leg["delivery"]["privateAddress"])
+
+    def pair_plan(self, x: Order, y: Order) -> Optional[tuple]:
+        """(score, alpha) if one driver can take x then y on time, by road minutes with buffers; else None."""
+        X, Y = x["legs"][0], y["legs"][0]
+        xp, xd, yp, yd = X["pickup"]["placeId"], X["delivery"]["placeId"], Y["pickup"]["placeId"], Y["delivery"]["placeId"]
+        hop = self.road.minutes(xd, yp)
+        if hop > self.p.pair_hop:
+            return None
+        xdrive, ydrive = self.road.minutes(xp, xd), self.road.minutes(yp, yd)
+        if xdrive + hop + ydrive > 12 * 60 - 30:
+            return None
+        start = max(self.now + 120, X["pickup"]["window"]["from"])
+        if start > x["lastPickupAt"] - 60:
+            return None
+        xdel = start + xdrive + (40 if X["car"]["electric"] and (X["car"]["chargePercent"] or 100) < 30 else 0)
+        if xdel > x["deadline"] - 60:
+            return None
+        ypick = max(xdel + hop, Y["pickup"]["window"]["from"])
+        if ypick > y["lastPickupAt"] - 60 or ypick + ydrive > y["deadline"] - 60:
+            return None
+        back = self.road.minutes(yd, xp)
+        if back > self.p.pair_return and not self.p.pair_chains:
+            return None
+        alpha = self.p.pair_alpha_return if back <= self.p.pair_return else self.p.pair_alpha_chain
+        return (back + hop, alpha)
+
+    def find_partner(self, a: Order) -> Optional[tuple]:
+        best = None
+        held = self.held()
+        for b in self.orders.values():
+            if b["id"] == a["id"] or not self.pairable(b) or b["id"] in self.urgent:
+                continue
+            gigs = self.gigs_of(b["id"])
+            if gigs and (any(g in self.booked for g in gigs) or any(len(self.posts.get(g, {}).get("stops", [])) != 2 for g in gigs)):
+                continue  # booked, or already in a pair
+            if not gigs and b["id"] not in held:
+                continue  # not won-and-waiting in our books
+            for x, y in ((a, b), (b, a)):
+                plan = self.pair_plan(x, y)
+                if plan and (best is None or plan[0] < best[0]):
+                    best = (plan[0], x, y, plan[1])
+        return None if best is None else best[1:]
+
+    def post_pair(self, x: Order, y: Order, alpha: float) -> None:
+        for o in (x, y):  # take an open single gig of either order out of the app first
+            for g in self.gigs_of(o["id"]):
+                self.outbox.append({"type": "withdraw", "gigId": g})
+            self.leg_gigs.pop(o["id"], None)
+        self.timers = [t for t in self.timers if t[1] not in (x["id"], y["id"])]
+        stops = []
+        for o in (x, y):
+            stops += starter.without_windows(starter.stops_for(o, [0], self.requests[o["id"]]["note"], starter.Retry()), self.now)
+        audience = {"experienced": any(o["legs"][0]["car"]["premium"] for o in (x, y)), "manualLicence": False}
+        ref = alpha * (self.requests[x["id"]]["referenceFeeCents"] + self.requests[y["id"]]["referenceFeeCents"])
+        sched = self.schedule(ref, min(x["lastPickupAt"], y["lastPickupAt"]))
+        self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": sched})
+        self.send()
+        if not self.gigs_of(x["id"]):  # refused: post each alone
+            self.stats["pair_refused"] = self.stats.get("pair_refused", 0) + 1
+            for o in (x, y):
+                super().post(o, [0])
+        else:
+            self.stats["pairs"] = self.stats.get("pairs", 0) + 1
+
+    def send_post_of(self, order_id: str) -> None:
+        if any(a["type"] == "post" and any(s["orderId"] == order_id for s in a["stops"]) for a in self.outbox):
+            self.send()
+
+    def withdraw(self, order_id: str) -> bool:
+        """As the kit's, and a partner that shared the withdrawn gig is posted again on its own."""
+        self.send_post_of(order_id)
+        gigs = self.gigs_of(order_id)
+        if any(g in self.booked for g in gigs):
+            return False
+        partners = {s["orderId"] for g in gigs for s in self.posts.get(g, {}).get("stops", [])} - {order_id}
+        ok = super().withdraw(order_id)
+        for pid in partners:
+            self.leg_gigs.pop(pid, None)
+            if pid in self.orders:
+                Desk.post(self, self.orders[pid], undelivered(self.orders[pid]))
+        return ok
 
     def read_results(self, actions, results) -> None:
         super().read_results(actions, results)
@@ -414,7 +514,9 @@ class Dispatcher(Desk):
             return steep(self.now, ref, self.level)
         if self.level == 1:  # one fee per gig at level 1
             return [{"at": self.now, "feeCents": max(1, int(ref * 1.05 * self.fee_scale))}]
-        last = order["lastPickupAt"]
+        return self.schedule(ref, order["lastPickupAt"])
+
+    def schedule(self, ref: float, last: int) -> list[FeeStep]:
         steps = [(self.now, self.p.fee_open)]
         for hours_before, mult in self.p.fee_steps:
             at = last - hours_before * HOUR
