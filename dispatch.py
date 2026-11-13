@@ -79,7 +79,7 @@ class Policy:
     offers: bool = False
     low_fee_scale: float = 0.75  # levels 1-3 (no competitor, many drivers): fees and fee estimates scale by this
     mid_fee_scale: float = 0.88  # levels 4-6
-    regime: bool = False         # Bayesian day level + price-war mixture + outage detection (regime.py)
+    regime: bool = True          # Bayesian day level + price-war mixture + outage detection (regime.py)
     price_slope: float = 10.5    # dealer price slope used with the regime learner
     dealer_fx: bool = False      # add persistent per-dealer price effects
     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
@@ -600,7 +600,14 @@ def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[
 def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dict:
     client = Client()
     road = Road(client.map())
-    world = client.create(level=level, seed=seed)
+    for attempt in range(90):  # the team shares 8 practice slots: wait for one rather than fail
+        try:
+            world = client.create(level=level, seed=seed)
+            break
+        except SpreadError as e:
+            if getattr(e, "status", None) != 409 or attempt == 89:
+                raise
+            time.sleep(20)
     LIVE.add(world.id)
     t0 = time.time()
     try:
