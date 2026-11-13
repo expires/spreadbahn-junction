@@ -3,3 +3,6 @@
 data/
 __pycache__/
 *.pyc
+runs/livesim/
+runs/live-*.json
+runs/live-*.json.tmp

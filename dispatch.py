@@ -11,8 +11,10 @@ import argparse
 import json
 import math
 import os
+import re
 import sys
 import time
+import traceback
 from concurrent.futures import ThreadPoolExecutor as ProcessPoolExecutor, as_completed
 from dataclasses import asdict, dataclass, field, replace
 from typing import Optional
@@ -43,6 +45,7 @@ atexit.register(_cleanup)
 signal.signal(signal.SIGTERM, lambda *_: sys.exit(1))
 signal.signal(signal.SIGHUP, lambda *_: sys.exit(1))
 OPTIONS = ("same_day", "next_day", "within_3_days")
+PLAIN = starter.Retry()  # the default of Dispatcher.post: a first post, not a retry after a failed visit
 
 
 @dataclass(frozen=True)
@@ -330,9 +333,80 @@ class Dispatcher(Desk):
         on_time = all(t <= o["deadline"] for t in o["deliveredAt"])
         self.trust[d] = min(25, self.trust.get(d, 0) + 1) if on_time else self.trust.get(d, 0) // 2
 
-    def post(self, order, legs, retry=starter.Retry()) -> None:
+    def post(self, order, legs, retry=PLAIN) -> None:
+        # After a restart, rejoin posts every waiting order at once: keep the hold for those that win() would hold.
+        if self.rejoining and retry is PLAIN and order["id"] not in self.urgent and legs == undelivered(order):
+            post_at = order["lastPickupAt"] - int(self.p.hold_hours * HOUR)
+            if post_at > self.now + 30:
+                self.timers.append((post_at, order["id"]))
+                return
         if legs:
             super().post(order, legs, retry)
+
+    def rejoin(self, snapshot, history) -> None:
+        self.rejoining = True
+        try:
+            super().rejoin(snapshot, history)
+        finally:
+            self.rejoining = False
+
+    # ---------- sending: the live loop's IO ----------
+    pacer = None        # the final's action bucket, set by play_live; None in practice (no limit)
+    rejoining = False
+
+    def priority(self, action) -> int:
+        """Quotes first (15 world minutes, 4.5 real seconds), then the gigs of orders past their deadline warning, then the rest.
+        A withdraw and the post that replaces it belong to one order, so they keep their order."""
+        if action["type"] == "quote":
+            return 0
+        if action["type"] == "post":
+            order_id = action["stops"][0]["orderId"]
+        else:
+            order_id = self.posts.get(action.get("gigId"), {}).get("stops", [{}])[0].get("orderId")
+        return 1 if order_id in self.urgent else 2
+
+    def send(self, budget: Optional[int] = None) -> None:
+        """Sends the outbox by priority, in batches of 50: all of it, or at most `budget` actions, and the rest waits
+        in the outbox for the next tick. A quote past its request's respondBy would be refused, so it is dropped."""
+        if not self.outbox:
+            return
+        keep = [a for a in self.outbox if a["type"] != "quote" or self.now <= self.requests.get(a["requestId"], {}).get("respondBy", self.now)]
+        self.stats["late_quotes"] = self.stats.get("late_quotes", 0) + len(self.outbox) - len(keep)
+        keep.sort(key=self.priority)
+        n = len(keep) if budget is None else max(0, budget)
+        actions, self.outbox = keep[:n], keep[n:]
+        for i in range(0, len(actions), 50):
+            batch = actions[i:i + 50]
+            if self.pacer is not None:
+                self.pacer.spend(len(batch))
+            self.read_results(batch, self.act(batch))
+
+    def act(self, batch: list) -> list:
+        """world.act, without letting one bad action stop the desk: an action that does not parse (a 400 naming it, or a
+        fraction that the client stops) is dropped and the others are sent again; another refusal drops the batch.
+        Unreachable and 5xx go up, and the caller rebuilds from the server: a resent post could make a second gig."""
+        results: list = [None] * len(batch)
+        todo = list(range(len(batch)))
+        while todo:
+            try:
+                for i, result in zip(todo, self.world.act([batch[i] for i in todo])):
+                    results[i] = result
+                break
+            except Unreachable:
+                raise
+            except SpreadError as error:
+                if error.status >= 500:
+                    raise
+                bad = re.match(r"\[(\d+)\]", error.field or "")
+                if bad and int(bad[1]) < len(todo):
+                    dropped = [todo.pop(int(bad[1]))]
+                else:
+                    dropped, todo = todo, []
+                for i in dropped:
+                    results[i] = {"ok": False, "reason": f"not sent: {error}"}
+                self.stats["refused"] = self.stats.get("refused", 0) + len(dropped)
+                print(f"live: dropped {len(dropped)} action(s) ({batch[dropped[0]]['type']}): {error}", file=sys.stderr, flush=True)
+        return results
 
     def read_results(self, actions, results) -> None:
         super().read_results(actions, results)
@@ -520,49 +594,123 @@ def rebuild(world, policy: Policy, road: Road, level: int) -> tuple[Dispatcher, 
             if rid in quotes and rid not in desk.quoted:
                 desk.quoted[rid] = (math.log(policy.comp0), 0)  # unknown old quote: a weak, neutral step
             desk.learn(rid, e["kind"] == "order_won")
-    desk.send()
+    # The caller sends the outbox: play_live by priority within the action bucket, play_practice with its first advance.
     return desk, (history[-1]["seq"] if history else -1), snap["endsAt"]
 
 
-def play_live(world, policy: Policy, road: Road, level: int = 8) -> None:
-    """The final: events from the stream, timers and the clock on a 1-second idle tick."""
+class Pacer:
+    """The client's copy of the final's action bucket: 20 tokens a second, at most 50, one per action."""
+
+    def __init__(self, rate: float = 20.0, cap: float = 50.0):
+        self.rate, self.cap, self.tokens, self.at = rate, cap, cap, time.monotonic()
+
+    def available(self) -> int:
+        now = time.monotonic()
+        self.tokens, self.at = min(self.cap, self.tokens + (now - self.at) * self.rate), now
+        return max(0, int(self.tokens))
+
+    def spend(self, n: int) -> None:
+        self.available()
+        self.tokens -= n
+
+
+def guarded(fn, *args) -> None:
+    """A bug in one handler must not stop the final: report it and go on. Request failures go up (rebuild)."""
+    try:
+        fn(*args)
+    except SpreadError:
+        raise
+    except Exception:  # noqa: BLE001
+        traceback.print_exc()
+
+
+def play_live(world, policy: Policy, road: Road, level: int = 8, clock=None) -> None:
+    """The final: events from the stream, timers and the clock on a short idle tick. `clock()` gives the world's
+    minute: the final's clock by default; livesim.py passes a practice world's. The outbox goes out quotes first,
+    within the action bucket; what does not fit waits for the next tick (0.25 s), so a burst never blocks the stream."""
+    clock = clock or (lambda: world.client.final()["now"])
+    t0 = time.monotonic()
     desk, seq, ends = rebuild(world, policy, road, level)
-    print(f"live: rebuilt at minute {desk.now}: {len(desk.orders)} orders, comp≈{math.exp(desk.log_comp):.3f}", flush=True)
+    desk.pacer = Pacer()
+    # The events do not hold our quoted prices, so rebuild can only guess the competitor estimate: keep ours on disk.
+    saved_at, checkpoint = time.monotonic(), os.path.join(ROOT, "runs", f"live-{world.id}.json")
+    rebuilt_comp = desk.log_comp
+    try:
+        saved = json.load(open(checkpoint))
+        desk.log_comp = saved["log_comp"]
+        desk.quoted = {**{k: tuple(v) for k, v in saved["quoted"].items() if k in desk.requests}, **desk.quoted}
+    except (OSError, ValueError, KeyError):
+        pass
+    print(f"live: rebuilt at minute {desk.now} in {time.monotonic() - t0:.1f} s: {len(desk.orders)} orders, "
+          f"{len(desk.outbox)} actions to send, comp≈{math.exp(desk.log_comp):.3f} (rebuild guessed {math.exp(rebuilt_comp):.3f})", flush=True)
     last_day = desk.now // DAY
-    for event in world.stream(after=seq, idle=1.0):
-        if event is None:
-            desk.now = max(desk.now, world.client.final()["now"]) if world.client else desk.now
-        else:
-            desk.now = max(desk.now, event["at"])
-            desk.handle(event)
-        desk.fire_timers()
-        desk.send()
-        if desk.now // DAY > last_day:
-            last_day = desk.now // DAY
-            s = world.score()
-            print(f"day {last_day}: margin €{s['marginCents']/100:,.0f}  {s['wonOrders']} orders  {s['onTimeShare']:.1%} on time  "
-                  f"comp≈{math.exp(desk.log_comp):.3f}  {desk.stats}", flush=True)
-        if desk.now >= ends:
-            return
-
-
-def run_final(policy: Policy) -> None:
-    client = Client()
-    road = Road(client.map())
-    while True:
+    while desk.now < ends:
+        heard = ticked = time.monotonic()
+        stream = world.stream(after=seq, idle=0.25)
         try:
-            world = starter.next_final(client)
-            print(f"final world {world.id}", flush=True)
-            play_live(world, policy, road)
-            s = world.score()
+            for event in stream:
+                now = time.monotonic()
+                if now - saved_at >= 5:
+                    saved_at = now
+                    try:
+                        os.makedirs(os.path.dirname(checkpoint), exist_ok=True)
+                        with open(checkpoint + ".tmp", "w") as fh:
+                            json.dump({"log_comp": desk.log_comp, "quoted": desk.quoted}, fh)
+                        os.replace(checkpoint + ".tmp", checkpoint)
+                    except OSError:
+                        pass
+                if event is not None:
+                    seq, heard = event["seq"], now
+                    desk.now = max(desk.now, event["at"])
+                    guarded(desk.handle, event)
+                elif now - ticked >= 1.0:
+                    ticked = now
+                    desk.now = max(desk.now, clock())
+                    if now - heard >= 2:  # a quiet stream can be a dead connection that does not know it
+                        heard = now
+                        if world.events(after=seq, limit=1):
+                            print(f"live: the stream is silent with events waiting after seq {seq}; reconnecting", file=sys.stderr, flush=True)
+                            break
+                guarded(desk.fire_timers)
+                desk.send(desk.pacer.available())
+                if desk.now // DAY > last_day:
+                    last_day = desk.now // DAY
+                    try:
+                        s = world.score()
+                        print(f"day {last_day}: margin €{s['marginCents']/100:,.0f}  {s['wonOrders']} orders  {s['onTimeShare']:.1%} on time  "
+                              f"comp≈{math.exp(desk.log_comp):.3f}  {desk.stats}", flush=True)
+                    except SpreadError:
+                        pass
+                if desk.now >= ends:
+                    return
+            else:
+                return  # the stream ended: the world was deleted
+        finally:
+            stream.close()
+
+
+def run_final(policy: Policy, world=None, clock=None) -> None:
+    """Plays the final (or `world`, on `clock`) to its end. Any failure, a server restart or a bug, rebuilds the desk
+    from the server and goes on: the clock does not wait."""
+    client = world.client if world is not None else Client()
+    road, fails = None, 0
+    while True:
+        started = time.monotonic()
+        try:
+            road = road or Road(client.map())
+            w = world or starter.next_final(client)
+            print(f"final world {w.id}", flush=True)
+            play_live(w, policy, road, clock=clock)
+            s = w.score()
             print(f"END margin €{s['marginCents']/100:,.2f}  {s['wonOrders']} orders  {s['onTimeShare']:.1%} on time  ranked={s['ranked']}", flush=True)
             return
-        except Unreachable as e:
-            print(f"unreachable: {e}; rebuilding in 5 s", file=sys.stderr, flush=True)
-            time.sleep(5)
-        except SpreadError as e:
-            print(f"spread error: {e}; rebuilding in 2 s", file=sys.stderr, flush=True)
-            time.sleep(2)
+        except Exception as e:  # noqa: BLE001  (Unreachable while the server restarts, a refused request, a bug)
+            fails = 1 if time.monotonic() - started > 30 else fails + 1
+            wait = min(2.0, 0.25 * 2 ** (fails - 1))  # at once for a one-off failure, every 2 s while the server is down
+            print(f"live loop failed: {e!r}; rebuilding in {wait:.2f} s", file=sys.stderr, flush=True)
+            if not isinstance(e, Unreachable):
+                traceback.print_exc()
+            time.sleep(wait)
 
 
 def run_board(level: int, policy: Policy, runs: int = 5) -> None:
