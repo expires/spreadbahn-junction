@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass, field, replace
 from typing import Optional
 
 import notes
+from regime import Regime
 from spread import starter
 from spread.client import Client, SpreadError, Unreachable
 from spread.starter import DAY, HOUR, WAKE_ON, Desk, steep, undelivered
@@ -62,6 +63,7 @@ class Policy:
     exp_fee: tuple = ((4, 2.0), (8, 1.55), (16, 1.25), (30, 1.05), (1e9, 0.95))
     p_late: tuple = ((4, 0.6), (8, 0.3), (16, 0.12), (30, 0.06), (1e9, 0.03))
     late_cost: float = 0.45      # refund + lost trust, as a share of the price
+    pl_scale: float = 0.6        # calibration multiplier on the modelled P(late)
     late_shadow: float = 80.0    # euros: the shadow price of the 90% minimum, per expected late order
     km_late: float = 0.0         # extra P(late) per km (now inside the supply model)
     # P(late) from driver supply, fitted on v5 runs: logit = b0 + bp*log1p(S_pickup) + bd*log1p(S_delivery) + bk*km/100,
@@ -77,6 +79,9 @@ class Policy:
     offers: bool = False
     low_fee_scale: float = 0.75  # levels 1-3 (no competitor, many drivers): fees and fee estimates scale by this
     mid_fee_scale: float = 0.88  # levels 4-6
+    regime: bool = True          # Bayesian day level + price-war mixture + outage detection (regime.py)
+    price_slope: float = 10.5    # dealer price slope used with the regime learner
+    dealer_fx: bool = False      # add persistent per-dealer price effects
     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
     # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
     notes_v2: bool = True             # the team's note parser (notes.py) instead of the kit's keyword reader
@@ -122,6 +127,7 @@ def step_lookup(table: tuple, x: float) -> float:
 class Road:
     def __init__(self, wmap: dict):
         self.r = {(x["from"], x["to"]): x for x in wmap["roads"]}
+        self.places = wmap.get("places", [])
 
     def minutes(self, a: str, b: str) -> int:
         return self.r[(a, b)]["minutes"]
@@ -142,6 +148,8 @@ class Dispatcher(Desk):
         # The competitor's price level by level, from the rules: near list up to 6, 1.12-1.38 at 7, 1.26-1.54 at 8.
         self.comp_lo, self.comp_hi, comp0 = {7: (1.05, 1.45, 1.25), 8: (policy.comp_lo, policy.comp_hi, policy.comp0)}.get(level, (0.85, 1.2, 1.0))
         self.log_comp = math.log(comp0)
+        self.regime = Regime(road.places, level0=math.log(comp0), first_day=now // DAY) \
+            if policy.regime and level >= 8 and road.places else None
         self.lanes = json.load(open(os.path.join(ROOT, "lane_effects.json"))) if policy.lanes else None
         self.fee_scale = policy.low_fee_scale if level <= 3 else policy.mid_fee_scale if level <= 6 else 1.0
         self.day_of_comp = now // DAY
@@ -311,7 +319,7 @@ class Dispatcher(Desk):
         slack = self.slack_hours(request, o["deadline"])
         sl = self.supply_late(request) + self.congestion(request)
         fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
-        pl = min(0.95, step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base) + pressure)
+        pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base)) + pressure)
         margin = lst * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
         if km > p.max_km or margin < p.min_margin * (1 + p.sla_gain * pressure * 10):
             self.stats["declined"] += 1
@@ -338,7 +346,11 @@ class Dispatcher(Desk):
         bar = p.min_margin * (1 + p.sla_gain * pressure * 10)
         boost = 1 + 0.01 * self.trust.get(request["dealerId"], 0) if self.level >= 8 else 1.0
         lane = self.lane_offset(request)
-        comp = math.exp(self.log_comp + lane) * boost
+        if self.regime:
+            comp = math.exp(self.regime.level(self.now) + lane + self.regime.adjust(request, self.now)) * boost
+        else:
+            comp = math.exp(self.log_comp + lane) * boost
+        slope = p.price_slope if self.regime else p.slope
         prices: dict[str, int] = {}
         best_lr = None
         loads = self.day_loads() if p.day_cap else {}
@@ -349,12 +361,12 @@ class Dispatcher(Desk):
             sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"]) \
                 + self.day_risk(loads, o["deadline"] // DAY, nlegs) + self.edge_risk(o["deadline"], km)
             fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
-            pl = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
+            pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base)) + pressure)
             best, best_x = -1e9, None
             for i in range(60):
                 x = 0.85 + i * 0.02  # price as x list
                 price = lst * x
-                win = 1 / (1 + math.exp(p.slope * (math.log(x) - math.log(comp))))
+                win = 1 / (1 + math.exp(slope * (math.log(x) - math.log(comp))))
                 margin = price * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
@@ -389,13 +401,21 @@ class Dispatcher(Desk):
         if not self.lanes:
             return 0.0
         leg = request["legs"][0]
-        return self.lanes["pickup"].get(leg["pickup"]["placeId"], 0.0) + self.lanes["delivery"].get(leg["delivery"]["placeId"], 0.0)
+        off = self.lanes["pickup"].get(leg["pickup"]["placeId"], 0.0) + self.lanes["delivery"].get(leg["delivery"]["placeId"], 0.0)
+        if self.p.dealer_fx:
+            off += self.lanes.get("dealer", {}).get(request["dealerId"], 0.0)
+        return off
 
     def learn(self, request_id: str, won: bool) -> None:
         """One SGD step of the logistic likelihood on log(comp)."""
         if request_id not in self.quoted:
             return
         lr, _ = self.quoted.pop(request_id)
+        if self.regime:
+            self.stats["won" if won else "lost"] += 1
+            self.regime.observe(self.requests[request_id], lr, won, self.now)
+            self.log_comp = self.regime.level(self.now)
+            return
         pwin = 1 / (1 + math.exp(self.p.slope * (lr - self.log_comp)))
         self.log_comp += self.p.comp_lr * ((1.0 if won else 0.0) - pwin)
         self.log_comp = min(math.log(self.comp_hi), max(math.log(self.comp_lo), self.log_comp))
@@ -674,14 +694,14 @@ def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[
 def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dict:
     client = Client()
     road = Road(client.map())
-    for attempt in range(240):  # the team's 8 practice slots are shared: wait for one on HTTP 409
+    for attempt in range(90):  # the team shares 8 practice slots: wait for one rather than fail
         try:
             world = client.create(level=level, seed=seed)
             break
         except SpreadError as e:
-            if getattr(e, "status", None) != 409 or attempt == 239:
+            if getattr(e, "status", None) != 409 or attempt == 89:
                 raise
-            time.sleep(5)
+            time.sleep(20)
     LIVE.add(world.id)
     t0 = time.time()
     try:
@@ -740,7 +760,7 @@ def rebuild(world, policy: Policy, road: Road, level: int) -> tuple[Dispatcher, 
         desk.settle(order_id)
     desk.snow = [(e["from"], e["to"], set(e["placeIds"])) for e in history if e["kind"] == "forecast"]
     quotes = {}
-    for e in history:  # replay the competitor learner on the outcomes we saw
+    for e in (history if desk.regime is None else []):  # replay the SGD learner; the regime learner restarts from its prior
         if e["kind"] == "price_request":
             quotes[e["request"]["id"]] = e["request"]
         elif e["kind"] in ("order_won", "order_lost"):
