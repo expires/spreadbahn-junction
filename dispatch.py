@@ -18,6 +18,7 @@ from dataclasses import asdict, dataclass, field, replace
 from typing import Optional
 
 import notes
+from regime import Regime
 from spread import starter
 from spread.client import Client, SpreadError, Unreachable
 from spread.starter import DAY, HOUR, WAKE_ON, Desk, steep, undelivered
@@ -78,6 +79,9 @@ class Policy:
     offers: bool = False
     low_fee_scale: float = 0.75  # levels 1-3 (no competitor, many drivers): fees and fee estimates scale by this
     mid_fee_scale: float = 0.88  # levels 4-6
+    regime: bool = False         # Bayesian day level + price-war mixture + outage detection (regime.py)
+    price_slope: float = 10.5    # dealer price slope used with the regime learner
+    dealer_fx: bool = False      # add persistent per-dealer price effects
     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
     # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
     notes_v2: bool = True             # the team's note parser (notes.py) instead of the kit's keyword reader
@@ -110,6 +114,7 @@ def step_lookup(table: tuple, x: float) -> float:
 class Road:
     def __init__(self, wmap: dict):
         self.r = {(x["from"], x["to"]): x for x in wmap["roads"]}
+        self.places = wmap.get("places", [])
 
     def minutes(self, a: str, b: str) -> int:
         return self.r[(a, b)]["minutes"]
@@ -130,6 +135,8 @@ class Dispatcher(Desk):
         # The competitor's price level by level, from the rules: near list up to 6, 1.12-1.38 at 7, 1.26-1.54 at 8.
         self.comp_lo, self.comp_hi, comp0 = {7: (1.05, 1.45, 1.25), 8: (policy.comp_lo, policy.comp_hi, policy.comp0)}.get(level, (0.85, 1.2, 1.0))
         self.log_comp = math.log(comp0)
+        self.regime = Regime(road.places, level0=math.log(comp0), first_day=now // DAY) \
+            if policy.regime and level >= 8 and road.places else None
         self.lanes = json.load(open(os.path.join(ROOT, "lane_effects.json"))) if policy.lanes else None
         self.fee_scale = policy.low_fee_scale if level <= 3 else policy.mid_fee_scale if level <= 6 else 1.0
         self.day_of_comp = now // DAY
@@ -255,7 +262,11 @@ class Dispatcher(Desk):
         bar = p.min_margin * (1 + p.sla_gain * pressure * 10)
         boost = 1 + 0.01 * self.trust.get(request["dealerId"], 0) if self.level >= 8 else 1.0
         lane = self.lane_offset(request)
-        comp = math.exp(self.log_comp + lane) * boost
+        if self.regime:
+            comp = math.exp(self.regime.level(self.now) + lane + self.regime.adjust(request, self.now)) * boost
+        else:
+            comp = math.exp(self.log_comp + lane) * boost
+        slope = p.price_slope if self.regime else p.slope
         prices: dict[str, int] = {}
         best_lr = None
         for o in request["options"]:
@@ -268,7 +279,7 @@ class Dispatcher(Desk):
             for i in range(60):
                 x = 0.85 + i * 0.02  # price as x list
                 price = lst * x
-                win = 1 / (1 + math.exp(p.slope * (math.log(x) - math.log(comp))))
+                win = 1 / (1 + math.exp(slope * (math.log(x) - math.log(comp))))
                 margin = price * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
@@ -300,13 +311,21 @@ class Dispatcher(Desk):
         if not self.lanes:
             return 0.0
         leg = request["legs"][0]
-        return self.lanes["pickup"].get(leg["pickup"]["placeId"], 0.0) + self.lanes["delivery"].get(leg["delivery"]["placeId"], 0.0)
+        off = self.lanes["pickup"].get(leg["pickup"]["placeId"], 0.0) + self.lanes["delivery"].get(leg["delivery"]["placeId"], 0.0)
+        if self.p.dealer_fx:
+            off += self.lanes.get("dealer", {}).get(request["dealerId"], 0.0)
+        return off
 
     def learn(self, request_id: str, won: bool) -> None:
         """One SGD step of the logistic likelihood on log(comp)."""
         if request_id not in self.quoted:
             return
         lr, _ = self.quoted.pop(request_id)
+        if self.regime:
+            self.stats["won" if won else "lost"] += 1
+            self.regime.observe(self.requests[request_id], lr, won, self.now)
+            self.log_comp = self.regime.level(self.now)
+            return
         pwin = 1 / (1 + math.exp(self.p.slope * (lr - self.log_comp)))
         self.log_comp += self.p.comp_lr * ((1.0 if won else 0.0) - pwin)
         self.log_comp = min(math.log(self.comp_hi), max(math.log(self.comp_lo), self.log_comp))
@@ -640,7 +659,7 @@ def rebuild(world, policy: Policy, road: Road, level: int) -> tuple[Dispatcher, 
         desk.settle(order_id)
     desk.snow = [(e["from"], e["to"], set(e["placeIds"])) for e in history if e["kind"] == "forecast"]
     quotes = {}
-    for e in history:  # replay the competitor learner on the outcomes we saw
+    for e in (history if desk.regime is None else []):  # replay the SGD learner; the regime learner restarts from its prior
         if e["kind"] == "price_request":
             quotes[e["request"]["id"]] = e["request"]
         elif e["kind"] in ("order_won", "order_lost"):
