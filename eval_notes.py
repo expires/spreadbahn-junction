@@ -346,6 +346,7 @@ def main():
     ap.add_argument("--worst", type=int, default=30)
     ap.add_argument("--no-baseline", action="store_true")
     ap.add_argument("--typos", type=int, default=0, help="also run N rounds with one random typo per note")
+    ap.add_argument("--test", default="cal-,v13-", help="folder prefixes held out as the test set")
     args = ap.parse_args()
     rows = load(args.data)
 
@@ -354,18 +355,36 @@ def main():
             return parse_note(None, None, req["arrivedAt"])
         return parse_note(note["text"], note.get("language"), req["arrivedAt"])
 
-    if not args.no_baseline:
-        evaluate(rows, lambda note, req: baseline_parse(note, req), "kit baseline (starter.window_from_note)")
-    evaluate(rows, ours, "notes.parse_note", worst=args.worst)
-
     import notes as N
-    if not args.no_baseline:
-        from spread import starter as S
-        check_stops(rows, lambda o, legs, req, now: S.stops_for(o, legs, req["note"], S.Retry()),
-                    lambda o, legs, req: {"experienced": False, "manualLicence": False}, "kit starter.stops_for")
-    N._PARSE_CACHE.clear()
-    check_stops(rows, lambda o, legs, req, now: N.stops_for(o, legs, dict(req, id=None), None, now),
-                lambda o, legs, req: N.audience_for(o, legs, dict(req, id=None), None), "notes.stops_for")
+    from spread import starter as S
+    test_prefixes = tuple(p for p in args.test.split(",") if p)
+    train = [r for r in rows if not r["folder"].startswith(test_prefixes)]
+    test = [r for r in rows if r["folder"].startswith(test_prefixes)]
+    summary = []
+    for name, part in (("TRAIN", train), ("HELD-OUT " + ",".join(test_prefixes), test)):
+        if not part:
+            continue
+        print(f"\n################ {name}: {len(part)} won orders from "
+              f"{len({r['folder'] for r in part})} folders ################")
+        db = None
+        if not args.no_baseline:
+            Sb, Fb = evaluate(part, lambda note, req: baseline_parse(note, req), f"kit baseline [{name}]")
+            db = sum(x.danger for x in Sb.values()) + sum(x.fn for x in Fb.values())
+            check_stops(part, lambda o, legs, req, now: S.stops_for(o, legs, req["note"], S.Retry()),
+                        lambda o, legs, req: {"experienced": False, "manualLicence": False},
+                        f"kit starter.stops_for [{name}]")
+        So, Fo = evaluate(part, ours, f"notes.parse_note [{name}]", worst=args.worst)
+        # Stop level: every world through ONE shared parse cache with the real request ids, as
+        # dispatch.py's threaded sweep does -- a cache keyed by request id alone fails here.
+        V = check_stops(part, lambda o, legs, req, now: N.stops_for(o, legs, req, None, now),
+                        lambda o, legs, req: N.audience_for(o, legs, req, None), f"notes.stops_for [{name}]")
+        d = sum(x.danger for x in So.values()) + sum(x.fn for x in Fo.values())
+        w = sum(x.waste for x in So.values()) + sum(x.fp for x in Fo.values())
+        summary.append((name, len(part), sum(1 for r in part if r["req"]["note"]), d, w, db, sum(V.values())))
+    print("\n== SUMMARY (danger = errors that cause a failed visit or a late car)")
+    print(f"{'split':<26}{'orders':>8}{'noted':>7}{'ours danger':>13}{'ours waste':>12}{'kit danger':>12}{'stop viol.':>12}")
+    for name, n, nn, d, w, db, v in summary:
+        print(f"{name:<26}{n:>8}{nn:>7}{d:>13}{w:>12}{'' if db is None else db:>12}{v:>12}")
     if args.typos:
         import random
         for seed in range(args.typos):

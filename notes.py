@@ -796,19 +796,24 @@ def parse_note(text: Optional[str], language: Optional[str] = None, arrived_at: 
 #
 # and, for timing/pricing, ``notes.constraints(request)`` gives the parsed note (cached).
 
-_PARSE_CACHE: dict[str, dict] = {}
+_PARSE_CACHE: dict[tuple, dict] = {}
 
 
 def constraints(request: dict) -> dict:
-    """parse_note for a PriceRequest, cached by request id (the note never changes)."""
-    rid = request.get("id")
-    hit = _PARSE_CACHE.get(rid) if rid is not None else None
+    """parse_note for a PriceRequest, cached by what the parse depends on: (note text, arrivedAt).
+    Never key by request id alone: ids ("R00218") repeat in every world, and several worlds can
+    run in one process (dispatch.py sweeps seeds in threads).  Returns a fresh copy."""
+    note = request.get("note")
+    if not note or not note.get("text"):
+        return _empty()
+    key = (note["text"], request["arrivedAt"])
+    hit = _PARSE_CACHE.get(key)
     if hit is None:
-        note = request.get("note")
-        hit = parse_note(note["text"], note.get("language"), request["arrivedAt"]) if note else _empty()
-        if rid is not None:
-            _PARSE_CACHE[rid] = hit
-    return hit
+        if len(_PARSE_CACHE) > 50_000:
+            _PARSE_CACHE.clear()
+        hit = parse_note(note["text"], note.get("language"), request["arrivedAt"])
+        _PARSE_CACHE[key] = hit
+    return dict(hit)
 
 
 def _day_open(day: int, h: dict) -> Optional[tuple[int, int]]:
