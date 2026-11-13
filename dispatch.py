@@ -17,6 +17,7 @@ from concurrent.futures import ThreadPoolExecutor as ProcessPoolExecutor, as_com
 from dataclasses import asdict, dataclass, field, replace
 from typing import Optional
 
+import notes
 from spread import starter
 from spread.client import Client, SpreadError, Unreachable
 from spread.starter import DAY, HOUR, WAKE_ON, Desk, steep, undelivered
@@ -78,6 +79,7 @@ class Policy:
     mid_fee_scale: float = 0.88  # levels 4-6
     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
     # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
+    notes_v2: bool = True             # the team's note parser (notes.py) instead of the kit's keyword reader
     combine: bool = True
     pair_alpha_return: float = 0.75   # fee of a pair whose second car ends near the first's start, x (refA + refB)
     pair_alpha_chain: float = 0.85    # any other feasible pair
@@ -128,6 +130,7 @@ class Dispatcher(Desk):
     def __init__(self, world, level, now, policy: Policy, road: Road):
         super().__init__(world, level, now)
         self.supply: dict[str, float] = {}
+        self.qlog: list[dict] = []               # per quoted option: the model's predictions, for calibration
         self.load: dict[tuple, float] = {}       # (pickup place, day) -> expected cars
         self.snow: list[tuple] = []              # (from, to, set of place ids) from forecasts
         self.pending: dict[str, tuple] = {}      # request id -> (key, weight) of an open quote
@@ -346,6 +349,8 @@ class Dispatcher(Desk):
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
             if best_x is not None and best_margin >= bar:
+                self.qlog.append({"rid": request["id"], "opt": o["kind"], "pl": round(pl, 4), "sl": round(sl, 4), "fee": round(fee, 2),
+                                  "x": round(best_x, 3), "slack": round(slack, 1), "pressure": round(pressure, 4)})
                 prices[o["kind"]] = int(lst * best_x * 100)
                 lr = math.log(best_x)
                 best_lr = lr if best_lr is None else min(best_lr, lr)
@@ -428,7 +433,20 @@ class Dispatcher(Desk):
             best = self.find_partner(order)
             if best is not None:
                 return self.post_pair(*best)
-        super().post(order, legs, retry)
+        self.post_single(order, legs, retry)
+
+    def post_single(self, order, legs, retry=starter.Retry()) -> None:
+        if not self.p.notes_v2:
+            return Desk.post(self, order, legs, retry)
+        req = self.requests[order["id"]]
+        stops = starter.without_windows(notes.stops_for(order, legs, req, retry, self.now), self.now)
+        audience = notes.audience_for(order, legs, req, retry)
+        self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": self.fees_for(order, len(legs))})
+        if len(legs) > 1:  # a trade-in over the 12-hour limit goes as one gig per car, as in the kit
+            self.send()
+            if not self.gigs_of(order["id"]):
+                for leg in legs:
+                    self.post_single(order, [leg], retry)
 
     # ---------- multi-car gigs ----------
     def pairable(self, o: Order) -> bool:
@@ -486,9 +504,16 @@ class Dispatcher(Desk):
             self.leg_gigs.pop(o["id"], None)
         self.timers = [t for t in self.timers if t[1] not in (x["id"], y["id"])]
         stops = []
+        audience = {"experienced": False, "manualLicence": False}
         for o in (x, y):
-            stops += starter.without_windows(starter.stops_for(o, [0], self.requests[o["id"]]["note"], starter.Retry()), self.now)
-        audience = {"experienced": any(o["legs"][0]["car"]["premium"] for o in (x, y)), "manualLicence": False}
+            req = self.requests[o["id"]]
+            if self.p.notes_v2:
+                stops += starter.without_windows(notes.stops_for(o, [0], req, starter.Retry(), self.now), self.now)
+                a = notes.audience_for(o, [0], req, starter.Retry())
+            else:
+                stops += starter.without_windows(starter.stops_for(o, [0], req["note"], starter.Retry()), self.now)
+                a = {"experienced": o["legs"][0]["car"]["premium"], "manualLicence": False}
+            audience = {k: audience[k] or a[k] for k in audience}
         ref = alpha * (self.requests[x["id"]]["referenceFeeCents"] + self.requests[y["id"]]["referenceFeeCents"])
         sched = self.schedule(ref, min(x["lastPickupAt"], y["lastPickupAt"]))
         self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": sched})
@@ -496,7 +521,7 @@ class Dispatcher(Desk):
         if not self.gigs_of(x["id"]):  # refused: post each alone
             self.stats["pair_refused"] = self.stats.get("pair_refused", 0) + 1
             for o in (x, y):
-                super().post(o, [0])
+                self.post_single(o, [0])
         else:
             self.stats["pairs"] = self.stats.get("pairs", 0) + 1
 
@@ -515,7 +540,7 @@ class Dispatcher(Desk):
         for pid in partners:
             self.leg_gigs.pop(pid, None)
             if pid in self.orders:
-                Desk.post(self, self.orders[pid], undelivered(self.orders[pid]))
+                self.post_single(self.orders[pid], undelivered(self.orders[pid]))
         return ok
 
     def read_results(self, actions, results) -> None:
@@ -653,7 +678,7 @@ def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dic
     LIVE.discard(world.id)
     if keep:
         import explore
-        explore.save(client, world, f"{tag}-{seed}", level, [])
+        explore.save(client, world, f"{tag}-{seed}", level, desk.qlog)
     s = world.score()
     return {"seed": seed, "world": world.id, "secs": round(time.time() - t0), "comp": round(math.exp(desk.log_comp), 3), **desk.stats, **s}
 

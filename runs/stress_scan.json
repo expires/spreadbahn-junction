@@ -1,0 +1,955 @@
+{
+ "st-1": {
+  "seed": "st-1",
+  "requests": 1034,
+  "drivers": 788,
+  "bulk_size": 34,
+  "bulk_day": "Thu",
+  "bulk_yard": "vantaa",
+  "yard_drivers": 18,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kemi",
+     "rovaniemi"
+    ]
+   ],
+   [
+    "Thu",
+    [
+     "kajaani",
+     "kuopio",
+     "oulu"
+    ]
+   ]
+  ],
+  "stress": 94.2
+ },
+ "st-2": {
+  "seed": "st-2",
+  "requests": 1036,
+  "drivers": 916,
+  "bulk_size": 36,
+  "bulk_day": "Thu",
+  "bulk_yard": "vantaa",
+  "yard_drivers": 57,
+  "snow": [
+   [
+    "Fri",
+    [
+     "kokkola",
+     "oulu",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 69.0
+ },
+ "st-3": {
+  "seed": "st-3",
+  "requests": 1031,
+  "drivers": 908,
+  "bulk_size": 31,
+  "bulk_day": "Mon",
+  "bulk_yard": "espoo",
+  "yard_drivers": 316,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kemi",
+     "rovaniemi"
+    ]
+   ]
+  ],
+  "stress": 46.0
+ },
+ "st-4": {
+  "seed": "st-4",
+  "requests": 1040,
+  "drivers": 878,
+  "bulk_size": 40,
+  "bulk_day": "Tue",
+  "bulk_yard": "kemi",
+  "yard_drivers": 1,
+  "snow": [
+   [
+    "Wed",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa"
+    ]
+   ]
+  ],
+  "stress": 74.0
+ },
+ "st-5": {
+  "seed": "st-5",
+  "requests": 1032,
+  "drivers": 650,
+  "bulk_size": 32,
+  "bulk_day": "Mon",
+  "bulk_yard": "oulu",
+  "yard_drivers": 91,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa"
+    ]
+   ]
+  ],
+  "stress": 62.0
+ },
+ "st-6": {
+  "seed": "st-6",
+  "requests": 1036,
+  "drivers": 831,
+  "bulk_size": 36,
+  "bulk_day": "Thu",
+  "bulk_yard": "lempaala",
+  "yard_drivers": 0,
+  "snow": [
+   [
+    "Thu",
+    [
+     "kemi",
+     "oulu",
+     "rovaniemi"
+    ]
+   ]
+  ],
+  "stress": 99.0
+ },
+ "st-7": {
+  "seed": "st-7",
+  "requests": 1040,
+  "drivers": 649,
+  "bulk_size": 40,
+  "bulk_day": "Wed",
+  "bulk_yard": "espoo",
+  "yard_drivers": 24,
+  "snow": [
+   [
+    "Thu",
+    [
+     "kokkola",
+     "oulu",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 70.1
+ },
+ "st-8": {
+  "seed": "st-8",
+  "requests": 1038,
+  "drivers": 784,
+  "bulk_size": 38,
+  "bulk_day": "Wed",
+  "bulk_yard": "hyvinkaa",
+  "yard_drivers": 12,
+  "snow": [
+   [
+    "Wed",
+    [
+     "jyvaskyla",
+     "kuopio",
+     "lahti",
+     "lempaala",
+     "mikkeli",
+     "tampere"
+    ]
+   ],
+   [
+    "Thu",
+    [
+     "joensuu",
+     "jyvaskyla",
+     "kajaani",
+     "kuopio",
+     "mikkeli",
+     "savonlinna"
+    ]
+   ]
+  ],
+  "stress": 87.6
+ },
+ "st-9": {
+  "seed": "st-9",
+  "requests": 1034,
+  "drivers": 913,
+  "bulk_size": 34,
+  "bulk_day": "Wed",
+  "bulk_yard": "oulu",
+  "yard_drivers": 149,
+  "snow": [
+   [
+    "Wed",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa"
+    ]
+   ],
+   [
+    "Fri",
+    [
+     "kemi",
+     "oulu",
+     "rovaniemi"
+    ]
+   ]
+  ],
+  "stress": 74.0
+ },
+ "st-10": {
+  "seed": "st-10",
+  "requests": 1032,
+  "drivers": 912,
+  "bulk_size": 32,
+  "bulk_day": "Mon",
+  "bulk_yard": "vaasa",
+  "yard_drivers": 3,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kajaani",
+     "kemi",
+     "oulu",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 64.0
+ },
+ "st-11": {
+  "seed": "st-11",
+  "requests": 1036,
+  "drivers": 876,
+  "bulk_size": 36,
+  "bulk_day": "Tue",
+  "bulk_yard": "espoo",
+  "yard_drivers": 122,
+  "snow": [
+   [
+    "Thu",
+    [
+     "jyvaskyla",
+     "kuopio",
+     "lahti",
+     "lempaala",
+     "mikkeli",
+     "tampere"
+    ]
+   ]
+  ],
+  "stress": 51.0
+ },
+ "st-12": {
+  "seed": "st-12",
+  "requests": 1038,
+  "drivers": 675,
+  "bulk_size": 38,
+  "bulk_day": "Wed",
+  "bulk_yard": "porvoo",
+  "yard_drivers": 9,
+  "snow": [
+   [
+    "Tue",
+    [
+     "joensuu",
+     "jyvaskyla",
+     "kajaani",
+     "kuopio",
+     "mikkeli",
+     "savonlinna"
+    ]
+   ]
+  ],
+  "stress": 76.5
+ },
+ "st-13": {
+  "seed": "st-13",
+  "requests": 1033,
+  "drivers": 674,
+  "bulk_size": 33,
+  "bulk_day": "Tue",
+  "bulk_yard": "mikkeli",
+  "yard_drivers": 2,
+  "snow": [
+   [
+    "Fri",
+    [
+     "jyvaskyla",
+     "kuopio",
+     "lahti",
+     "lempaala",
+     "mikkeli",
+     "tampere"
+    ]
+   ]
+  ],
+  "stress": 78.6
+ },
+ "st-14": {
+  "seed": "st-14",
+  "requests": 1039,
+  "drivers": 715,
+  "bulk_size": 39,
+  "bulk_day": "Mon",
+  "bulk_yard": "helsinki",
+  "yard_drivers": 206,
+  "snow": [
+   [
+    "Wed",
+    [
+     "joensuu",
+     "jyvaskyla",
+     "kajaani",
+     "kuopio",
+     "mikkeli",
+     "savonlinna"
+    ]
+   ],
+   [
+    "Fri",
+    [
+     "kokkola",
+     "oulu",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 77.5
+ },
+ "st-15": {
+  "seed": "st-15",
+  "requests": 1037,
+  "drivers": 892,
+  "bulk_size": 37,
+  "bulk_day": "Mon",
+  "bulk_yard": "vantaa",
+  "yard_drivers": 53,
+  "snow": [
+   [
+    "Wed",
+    [
+     "kajaani",
+     "kuopio",
+     "oulu"
+    ]
+   ]
+  ],
+  "stress": 52.0
+ },
+ "st-16": {
+  "seed": "st-16",
+  "requests": 1033,
+  "drivers": 710,
+  "bulk_size": 33,
+  "bulk_day": "Tue",
+  "bulk_yard": "porvoo",
+  "yard_drivers": 3,
+  "snow": [
+   [
+    "Fri",
+    [
+     "joensuu",
+     "jyvaskyla",
+     "kajaani",
+     "kuopio",
+     "mikkeli",
+     "savonlinna"
+    ]
+   ]
+  ],
+  "stress": 74.0
+ },
+ "st-17": {
+  "seed": "st-17",
+  "requests": 1040,
+  "drivers": 839,
+  "bulk_size": 40,
+  "bulk_day": "Wed",
+  "bulk_yard": "vantaa",
+  "yard_drivers": 116,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kemi",
+     "oulu",
+     "rovaniemi"
+    ]
+   ]
+  ],
+  "stress": 55.0
+ },
+ "st-18": {
+  "seed": "st-18",
+  "requests": 1039,
+  "drivers": 770,
+  "bulk_size": 39,
+  "bulk_day": "Mon",
+  "bulk_yard": "tampere",
+  "yard_drivers": 112,
+  "snow": [
+   [
+    "Fri",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa"
+    ]
+   ]
+  ],
+  "stress": 57.0
+ },
+ "st-19": {
+  "seed": "st-19",
+  "requests": 1039,
+  "drivers": 653,
+  "bulk_size": 39,
+  "bulk_day": "Mon",
+  "bulk_yard": "espoo",
+  "yard_drivers": 96,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa",
+     "ylivieska"
+    ]
+   ],
+   [
+    "Fri",
+    [
+     "kajaani",
+     "kuopio",
+     "oulu"
+    ]
+   ]
+  ],
+  "stress": 83.7
+ },
+ "st-20": {
+  "seed": "st-20",
+  "requests": 1035,
+  "drivers": 716,
+  "bulk_size": 35,
+  "bulk_day": "Wed",
+  "bulk_yard": "tampere",
+  "yard_drivers": 80,
+  "snow": [
+   [
+    "Tue",
+    [
+     "jyvaskyla",
+     "kuopio",
+     "lahti",
+     "lempaala",
+     "mikkeli",
+     "tampere"
+    ]
+   ],
+   [
+    "Wed",
+    [
+     "joensuu",
+     "kuopio",
+     "savonlinna"
+    ]
+   ]
+  ],
+  "stress": 83.4
+ },
+ "st-21": {
+  "seed": "st-21",
+  "requests": 1039,
+  "drivers": 842,
+  "bulk_size": 39,
+  "bulk_day": "Thu",
+  "bulk_yard": "lempaala",
+  "yard_drivers": 3,
+  "snow": [
+   [
+    "Thu",
+    [
+     "joensuu",
+     "kuopio",
+     "savonlinna"
+    ]
+   ],
+   [
+    "Fri",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa"
+    ]
+   ]
+  ],
+  "stress": 115.5
+ },
+ "st-22": {
+  "seed": "st-22",
+  "requests": 1035,
+  "drivers": 700,
+  "bulk_size": 35,
+  "bulk_day": "Wed",
+  "bulk_yard": "hyvinkaa",
+  "yard_drivers": 7,
+  "snow": [
+   [
+    "Tue",
+    [
+     "joensuu",
+     "kuopio",
+     "savonlinna"
+    ]
+   ]
+  ],
+  "stress": 73.0
+ },
+ "st-23": {
+  "seed": "st-23",
+  "requests": 1034,
+  "drivers": 921,
+  "bulk_size": 34,
+  "bulk_day": "Thu",
+  "bulk_yard": "kuopio",
+  "yard_drivers": 4,
+  "snow": [
+   [
+    "Tue",
+    [
+     "joensuu",
+     "kuopio",
+     "savonlinna"
+    ]
+   ]
+  ],
+  "stress": 82.0
+ },
+ "st-24": {
+  "seed": "st-24",
+  "requests": 1031,
+  "drivers": 905,
+  "bulk_size": 31,
+  "bulk_day": "Thu",
+  "bulk_yard": "lempaala",
+  "yard_drivers": 0,
+  "snow": [
+   [
+    "Fri",
+    [
+     "kemi",
+     "rovaniemi"
+    ]
+   ]
+  ],
+  "stress": 81.5
+ },
+ "st-25": {
+  "seed": "st-25",
+  "requests": 1034,
+  "drivers": 808,
+  "bulk_size": 34,
+  "bulk_day": "Thu",
+  "bulk_yard": "porvoo",
+  "yard_drivers": 11,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa"
+    ]
+   ],
+   [
+    "Thu",
+    [
+     "kajaani",
+     "kuopio",
+     "oulu"
+    ]
+   ]
+  ],
+  "stress": 100.0
+ },
+ "st-26": {
+  "seed": "st-26",
+  "requests": 1040,
+  "drivers": 713,
+  "bulk_size": 40,
+  "bulk_day": "Tue",
+  "bulk_yard": "espoo",
+  "yard_drivers": 71,
+  "snow": [
+   [
+    "Fri",
+    [
+     "jyvaskyla",
+     "kuopio",
+     "lahti",
+     "lempaala",
+     "mikkeli",
+     "tampere"
+    ]
+   ]
+  ],
+  "stress": 63.7
+ },
+ "st-27": {
+  "seed": "st-27",
+  "requests": 1031,
+  "drivers": 713,
+  "bulk_size": 31,
+  "bulk_day": "Wed",
+  "bulk_yard": "ylivieska",
+  "yard_drivers": 2,
+  "snow": [
+   [
+    "Wed",
+    [
+     "joensuu",
+     "jyvaskyla",
+     "kajaani",
+     "kuopio",
+     "mikkeli",
+     "savonlinna"
+    ]
+   ]
+  ],
+  "stress": 82.7
+ },
+ "st-28": {
+  "seed": "st-28",
+  "requests": 1032,
+  "drivers": 916,
+  "bulk_size": 32,
+  "bulk_day": "Mon",
+  "bulk_yard": "vantaa",
+  "yard_drivers": 99,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kajaani",
+     "kuopio",
+     "oulu"
+    ]
+   ]
+  ],
+  "stress": 47.0
+ },
+ "st-29": {
+  "seed": "st-29",
+  "requests": 1040,
+  "drivers": 844,
+  "bulk_size": 40,
+  "bulk_day": "Mon",
+  "bulk_yard": "lempaala",
+  "yard_drivers": 1,
+  "snow": [
+   [
+    "Thu",
+    [
+     "jyvaskyla",
+     "kuopio",
+     "lahti",
+     "lempaala",
+     "mikkeli",
+     "tampere"
+    ]
+   ]
+  ],
+  "stress": 74.0
+ },
+ "st-30": {
+  "seed": "st-30",
+  "requests": 1032,
+  "drivers": 939,
+  "bulk_size": 32,
+  "bulk_day": "Tue",
+  "bulk_yard": "helsinki",
+  "yard_drivers": 433,
+  "snow": [
+   [
+    "Wed",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa"
+    ]
+   ],
+   [
+    "Thu",
+    [
+     "kemi",
+     "oulu",
+     "rovaniemi"
+    ]
+   ]
+  ],
+  "stress": 62.0
+ },
+ "st-31": {
+  "seed": "st-31",
+  "requests": 1034,
+  "drivers": 907,
+  "bulk_size": 34,
+  "bulk_day": "Wed",
+  "bulk_yard": "oulu",
+  "yard_drivers": 51,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kajaani",
+     "kuopio",
+     "oulu"
+    ]
+   ],
+   [
+    "Thu",
+    [
+     "jyvaskyla",
+     "kuopio",
+     "lahti",
+     "lempaala",
+     "mikkeli",
+     "tampere"
+    ]
+   ]
+  ],
+  "stress": 64.0
+ },
+ "st-32": {
+  "seed": "st-32",
+  "requests": 1039,
+  "drivers": 891,
+  "bulk_size": 39,
+  "bulk_day": "Thu",
+  "bulk_yard": "kouvola",
+  "yard_drivers": 2,
+  "snow": [
+   [
+    "Thu",
+    [
+     "joensuu",
+     "kuopio",
+     "savonlinna"
+    ]
+   ]
+  ],
+  "stress": 101.5
+ },
+ "st-33": {
+  "seed": "st-33",
+  "requests": 1037,
+  "drivers": 880,
+  "bulk_size": 37,
+  "bulk_day": "Thu",
+  "bulk_yard": "hyvinkaa",
+  "yard_drivers": 24,
+  "snow": [
+   [
+    "Thu",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 80.5
+ },
+ "st-34": {
+  "seed": "st-34",
+  "requests": 1033,
+  "drivers": 904,
+  "bulk_size": 33,
+  "bulk_day": "Wed",
+  "bulk_yard": "kuopio",
+  "yard_drivers": 8,
+  "snow": [
+   [
+    "Wed",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa"
+    ]
+   ],
+   [
+    "Fri",
+    [
+     "kajaani",
+     "kemi",
+     "oulu",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 85.0
+ },
+ "st-35": {
+  "seed": "st-35",
+  "requests": 1032,
+  "drivers": 654,
+  "bulk_size": 32,
+  "bulk_day": "Mon",
+  "bulk_yard": "porvoo",
+  "yard_drivers": 5,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kemi",
+     "rovaniemi"
+    ]
+   ],
+   [
+    "Thu",
+    [
+     "kajaani",
+     "kuopio",
+     "oulu"
+    ]
+   ]
+  ],
+  "stress": 91.6
+ },
+ "st-36": {
+  "seed": "st-36",
+  "requests": 1034,
+  "drivers": 947,
+  "bulk_size": 34,
+  "bulk_day": "Wed",
+  "bulk_yard": "tampere",
+  "yard_drivers": 50,
+  "snow": [
+   [
+    "Fri",
+    [
+     "kemi",
+     "rovaniemi"
+    ]
+   ]
+  ],
+  "stress": 49.0
+ },
+ "st-37": {
+  "seed": "st-37",
+  "requests": 1037,
+  "drivers": 761,
+  "bulk_size": 37,
+  "bulk_day": "Thu",
+  "bulk_yard": "hyvinkaa",
+  "yard_drivers": 21,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 74.4
+ },
+ "st-38": {
+  "seed": "st-38",
+  "requests": 1030,
+  "drivers": 668,
+  "bulk_size": 30,
+  "bulk_day": "Thu",
+  "bulk_yard": "hyvinkaa",
+  "yard_drivers": 2,
+  "snow": [
+   [
+    "Wed",
+    [
+     "kajaani",
+     "kemi",
+     "oulu",
+     "ylivieska"
+    ]
+   ],
+   [
+    "Fri",
+    [
+     "kemi",
+     "rovaniemi"
+    ]
+   ]
+  ],
+  "stress": 106.2
+ },
+ "st-39": {
+  "seed": "st-39",
+  "requests": 1033,
+  "drivers": 736,
+  "bulk_size": 33,
+  "bulk_day": "Tue",
+  "bulk_yard": "vantaa",
+  "yard_drivers": 63,
+  "snow": [
+   [
+    "Tue",
+    [
+     "joensuu",
+     "jyvaskyla",
+     "kajaani",
+     "kuopio",
+     "mikkeli",
+     "savonlinna"
+    ]
+   ],
+   [
+    "Thu",
+    [
+     "kajaani",
+     "kemi",
+     "oulu",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 79.4
+ },
+ "st-40": {
+  "seed": "st-40",
+  "requests": 1036,
+  "drivers": 766,
+  "bulk_size": 36,
+  "bulk_day": "Wed",
+  "bulk_yard": "helsinki",
+  "yard_drivers": 352,
+  "snow": [
+   [
+    "Tue",
+    [
+     "kokkola",
+     "seinajoki",
+     "vaasa",
+     "ylivieska"
+    ]
+   ]
+  ],
+  "stress": 54.4
+ }
+}
