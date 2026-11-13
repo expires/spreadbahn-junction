@@ -1,0 +1,14 @@
+v7-lam80     ev-5  margin €    13,075   397 orders   95.7% on time  comp≈1.344  q/d=883/149 km/bar/mrg=96/0/53  32s
+v7-lam80     ev-3  margin €     6,778   290 orders   95.5% on time  comp≈1.261  q/d=864/170 km/bar/mrg=86/0/84  34s
+v7-lam80     ev-2  margin €    12,997   434 orders   96.3% on time  comp≈1.585  q/d=883/155 km/bar/mrg=106/0/49  34s
+v7-lam80     ev-6  margin €     9,316   287 orders   96.5% on time  comp≈1.342  q/d=821/211 km/bar/mrg=104/0/107  35s
+v7-lam80     ev-4  margin €    15,591   501 orders   91.2% on time  comp≈1.283  q/d=880/156 km/bar/mrg=102/0/54  38s
+v7-lam80     ev-1  margin €    14,301   435 orders   93.3% on time  comp≈1.308  q/d=856/179 km/bar/mrg=83/0/96  40s
+v7-lam80 MEAN margin €12,010/week  worst on-time 91.2%  ranked 6/6
+v7-lam120     ev-5  margin €    11,757   364 orders   96.2% on time  comp≈1.355  q/d=860/172 km/bar/mrg=96/0/76  40s
+v7-lam120     ev-6  margin €     9,297   262 orders   97.3% on time  comp≈1.327  q/d=794/238 km/bar/mrg=104/0/134  40s
+v7-lam120     ev-3  margin €     6,554   257 orders   95.3% on time  comp≈1.248  q/d=835/199 km/bar/mrg=86/0/113  40s
+v7-lam120     ev-1  margin €    13,698   406 orders   94.6% on time  comp≈1.336  q/d=838/197 km/bar/mrg=83/0/114  40s
+v7-lam120     ev-2  margin €    11,610   410 orders   95.1% on time  comp≈1.544  q/d=859/179 km/bar/mrg=106/0/73  41s
+v7-lam120     ev-4  margin €    14,779   460 orders   90.9% on time  comp≈1.258  q/d=871/165 km/bar/mrg=102/0/63  42s
+v7-lam120 MEAN margin €11,282/week  worst on-time 90.9%  ranked 6/6

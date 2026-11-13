@@ -346,8 +346,84 @@ def sweep(seeds: list[str], level: int, policy: Policy, tag: str, parallel: int,
     return out
 
 
+def rebuild(world, policy: Policy, road: Road, level: int) -> tuple[Dispatcher, int, int]:
+    """Builds a desk from the server's own record, so a restart (ours or the server's) loses nothing:
+    orders, gigs, open requests (quoted at once), dealer trust and the competitor estimate."""
+    history = world.events()
+    snap = world.snapshot()
+    desk = Dispatcher(world, level, snap["now"], policy, road)
+    desk.init_supply(world.roster())
+    desk.rejoin(snap, history)
+    for order_id in list(desk.orders):
+        desk.settle(order_id)
+    quotes = {}
+    for e in history:  # replay the competitor learner on the outcomes we saw
+        if e["kind"] == "price_request":
+            quotes[e["request"]["id"]] = e["request"]
+        elif e["kind"] in ("order_won", "order_lost"):
+            rid = e["order"]["id"] if e["kind"] == "order_won" else e["requestId"]
+            if rid in quotes and rid not in desk.quoted:
+                desk.quoted[rid] = (math.log(policy.comp0), 0)  # unknown old quote: a weak, neutral step
+            desk.learn(rid, e["kind"] == "order_won")
+    desk.send()
+    return desk, (history[-1]["seq"] if history else -1), snap["endsAt"]
+
+
+def play_live(world, policy: Policy, road: Road, level: int = 8) -> None:
+    """The final: events from the stream, timers and the clock on a 1-second idle tick."""
+    desk, seq, ends = rebuild(world, policy, road, level)
+    print(f"live: rebuilt at minute {desk.now}: {len(desk.orders)} orders, comp≈{math.exp(desk.log_comp):.3f}", flush=True)
+    last_day = desk.now // DAY
+    for event in world.stream(after=seq, idle=1.0):
+        if event is None:
+            desk.now = max(desk.now, world.client.final()["now"]) if world.client else desk.now
+        else:
+            desk.now = max(desk.now, event["at"])
+            desk.handle(event)
+        desk.fire_timers()
+        desk.send()
+        if desk.now // DAY > last_day:
+            last_day = desk.now // DAY
+            s = world.score()
+            print(f"day {last_day}: margin €{s['marginCents']/100:,.0f}  {s['wonOrders']} orders  {s['onTimeShare']:.1%} on time  "
+                  f"comp≈{math.exp(desk.log_comp):.3f}  {desk.stats}", flush=True)
+        if desk.now >= ends:
+            return
+
+
+def run_final(policy: Policy) -> None:
+    client = Client()
+    road = Road(client.map())
+    while True:
+        try:
+            world = starter.next_final(client)
+            print(f"final world {world.id}", flush=True)
+            play_live(world, policy, road)
+            s = world.score()
+            print(f"END margin €{s['marginCents']/100:,.2f}  {s['wonOrders']} orders  {s['onTimeShare']:.1%} on time  ranked={s['ranked']}", flush=True)
+            return
+        except Unreachable as e:
+            print(f"unreachable: {e}; rebuilding in 5 s", file=sys.stderr, flush=True)
+            time.sleep(5)
+        except SpreadError as e:
+            print(f"spread error: {e}; rebuilding in 2 s", file=sys.stderr, flush=True)
+            time.sleep(2)
+
+
+def run_board(level: int, policy: Policy) -> None:
+    client = Client()
+    road = Road(client.map())
+    world = client.create(level=level, board=True)
+    print(f"ranking run {world.id}: it counts even if this stops", flush=True)
+    play_practice(world, level, policy, road)
+    s = world.score()
+    print(f"END margin €{s['marginCents']/100:,.2f}  {s['wonOrders']} orders  {s['onTimeShare']:.1%} on time  ranked={s['ranked']}", flush=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--board", action="store_true", help="play the next ranking run")
+    ap.add_argument("--final", action="store_true", help="play the live final (or a test final)")
     ap.add_argument("--level", type=int, default=8)
     ap.add_argument("--seeds", type=int, default=6)
     ap.add_argument("--prefix", default="ev")
@@ -359,7 +435,13 @@ def main() -> None:
     pol = Policy()
     for kv in a.set:
         k, v = kv.split("=", 1)
-        pol = replace(pol, **{k: type(getattr(pol, k))(json.loads(v)) if not isinstance(getattr(pol, k), tuple) else tuple(map(tuple, json.loads(v)))})
+        cur, val = getattr(pol, k), json.loads(v)
+        val = tuple(tuple(x) if isinstance(x, list) else x for x in val) if isinstance(cur, tuple) else type(cur)(val)
+        pol = replace(pol, **{k: val})
+    if a.final:
+        return run_final(pol)
+    if a.board:
+        return run_board(a.level, pol)
     sweep([f"{a.prefix}-{i}" for i in range(1, a.seeds + 1)], a.level, pol, a.tag, a.parallel, a.keep)
 
 
