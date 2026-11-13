@@ -88,6 +88,7 @@ class Policy:
     pair_chains: bool = False         # also pair cars whose second leg does not come back
     snow_late: float = 0.15      # extra P(late) for a leg touching a snowed place on its pickup day
     snow_fee: float = 0.15       # fee uplift for such a leg
+    snow_km: float = 0.0         # and this much more per 100 km of the leg: a long drive into snow rarely finds a driver
     offer_fee: float = 2.0       # x typical fee
     offer_reach: int = 150       # only drivers living within this many road minutes of the pickup
     max_km: float = 520.0        # decline longer lanes
@@ -106,6 +107,9 @@ class Policy:
     flu_drops: int = 0           # drops 00:00-03:00 today that mark a flu day (0 = off)
     flu_cap: float = 0.7         # today's day capacity is multiplied by this on a flu day
     flu_fee: float = 0.0         # on a flu day, today's unbooked gigs go at least at this x typical fee at once (0 = off)
+    # Edge days: a car due on a Friday or the last Monday has no next business day to catch up on, and
+    # long lanes then run late four times as often as midweek (17% vs 4%, 40 runs). Extra P(late) by km:
+    edge_late: tuple = (0.0, 0.0, 0.0)   # under 150 km, 150-300 km, over 300 km
 
 
 def step_lookup(table: tuple, x: float) -> float:
@@ -203,7 +207,7 @@ class Dispatcher(Desk):
             start = leg["pickup"]["window"]["from"]
             places = {leg["pickup"]["placeId"], leg["delivery"]["placeId"]}
             if any(f < deadline and t > start and places & ps for f, t, ps in self.snow):
-                return self.p.snow_late
+                return self.p.snow_late + self.p.snow_km * self.road.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) / 100
         return 0.0
 
     def load_key(self, request: PriceRequest) -> tuple:
@@ -238,6 +242,12 @@ class Dispatcher(Desk):
         if cap <= 0:
             return 0.0
         return self.p.day_late * max(0.0, (loads.get(day, 0.0) + legs) / cap - 1)
+
+    def edge_risk(self, deadline: int, km: float) -> float:
+        day = deadline // DAY
+        if day % 7 != 4 and day != 7:
+            return 0.0
+        return self.p.edge_late[0 if km < 150 else 1 if km < 300 else 2]
 
     def note_drop(self, at: int, gig_id: Optional[str] = None) -> None:
         """Counts night drops; a burst of them marks today a flu day. On a flu day a dropped gig of today goes up at once."""
@@ -337,7 +347,7 @@ class Dispatcher(Desk):
             lst = o["listPriceCents"] / 100
             slack = self.slack_hours(request, o["deadline"])
             sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"]) \
-                + self.day_risk(loads, o["deadline"] // DAY, nlegs)
+                + self.day_risk(loads, o["deadline"] // DAY, nlegs) + self.edge_risk(o["deadline"], km)
             fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
             pl = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
             best, best_x = -1e9, None
@@ -664,7 +674,14 @@ def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[
 def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dict:
     client = Client()
     road = Road(client.map())
-    world = client.create(level=level, seed=seed)
+    for attempt in range(240):  # the team's 8 practice slots are shared: wait for one on HTTP 409
+        try:
+            world = client.create(level=level, seed=seed)
+            break
+        except SpreadError as e:
+            if getattr(e, "status", None) != 409 or attempt == 239:
+                raise
+            time.sleep(5)
     LIVE.add(world.id)
     t0 = time.time()
     try:
