@@ -76,6 +76,7 @@ class Policy:
     offers: bool = False
     low_fee_scale: float = 0.75  # levels 1-3 (no competitor, many drivers): fees and fee estimates scale by this
     mid_fee_scale: float = 0.88  # levels 4-6
+    lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
     snow_late: float = 0.0       # extra P(late) for a leg touching a snowed place on its pickup day
     snow_fee: float = 0.15       # fee uplift for such a leg
     offer_fee: float = 2.0       # x typical fee
@@ -118,6 +119,7 @@ class Dispatcher(Desk):
         # The competitor's price level by level, from the rules: near list up to 6, 1.12-1.38 at 7, 1.26-1.54 at 8.
         self.comp_lo, self.comp_hi, comp0 = {7: (1.05, 1.45, 1.25), 8: (policy.comp_lo, policy.comp_hi, policy.comp0)}.get(level, (0.85, 1.2, 1.0))
         self.log_comp = math.log(comp0)
+        self.lanes = json.load(open(os.path.join(ROOT, "lane_effects.json"))) if policy.lanes else None
         self.fee_scale = policy.low_fee_scale if level <= 3 else policy.mid_fee_scale if level <= 6 else 1.0
         self.day_of_comp = now // DAY
         self.quoted: dict[str, tuple[float, int]] = {}  # request id -> (log ratio of cheapest quote, day)
@@ -241,7 +243,8 @@ class Dispatcher(Desk):
         pressure = max(0.0, self.sla_pressure())
         bar = p.min_margin * (1 + p.sla_gain * pressure * 10)
         boost = 1 + 0.01 * self.trust.get(request["dealerId"], 0) if self.level >= 8 else 1.0
-        comp = math.exp(self.log_comp) * boost
+        lane = self.lane_offset(request)
+        comp = math.exp(self.log_comp + lane) * boost
         prices: dict[str, int] = {}
         best_lr = None
         for o in request["options"]:
@@ -276,8 +279,15 @@ class Dispatcher(Desk):
             # dealers turn to the competitor at any price, and the estimate would sink.
             fastest = request["options"][0]
             if prices[fastest["kind"]] < fastest["listPriceCents"] * 3:
-                self.quoted[request["id"]] = (best_lr - math.log(boost), self.now // DAY)
+                self.quoted[request["id"]] = (best_lr - math.log(boost) - lane, self.now // DAY)
         self.outbox.append({"type": "quote", "requestId": request["id"], "prices": prices})
+
+    def lane_offset(self, request: PriceRequest) -> float:
+        """Log price offset of the competitor on this lane, persistent across worlds (fitted on 39 worlds)."""
+        if not self.lanes:
+            return 0.0
+        leg = request["legs"][0]
+        return self.lanes["pickup"].get(leg["pickup"]["placeId"], 0.0) + self.lanes["delivery"].get(leg["delivery"]["placeId"], 0.0)
 
     def learn(self, request_id: str, won: bool) -> None:
         """One SGD step of the logistic likelihood on log(comp)."""
