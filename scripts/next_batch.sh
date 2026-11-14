@@ -9,7 +9,7 @@ from dataclasses import asdict
 sys.path.insert(0, "scripts")
 from backtest import key
 from bahn.simulation.dispatch import Policy
-LATER = {"regime_sd0"}   # added after batch 1 started; off by default
+LATER = {"bar_adapt", "bar_util_ref", "bar_lo", "bar_hi"}   # added after the running batch started; off by default
 d = {k: v for k, v in asdict(Policy()).items() if k not in LATER}
 old = "runs/bt-" + hashlib.sha1(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()[:10] + ".json"
 new = f"runs/bt-{key(Policy())}.json"

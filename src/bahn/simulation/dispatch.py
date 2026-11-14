@@ -104,6 +104,12 @@ class Policy:
     mid_fee_scale: float = 0.88  # levels 4-6
     regime: bool = True          # Bayesian day level + price-war mixture + outage detection (regime.py)
     price_slope: float = 10.5    # dealer price slope used with the regime learner
+    # Bid-price control: the minimum margin follows how full the deadline day already is (idle capacity -> take
+    # thin cars; full -> only good ones). utilisation = legs due that day / day capacity (day_cap per 100 drivers).
+    bar_adapt: bool = False
+    bar_util_ref: float = 0.8    # utilisation at which the bar equals min_margin
+    bar_lo: float = 0.25         # floor of the bar as a share of min_margin (idle days)
+    bar_hi: float = 1.6          # ceiling (full days)
     regime_sd0: float = 0.07     # prior sd of the competitor's log level: wider = learns a cheap/dear week faster
     dealer_fx: bool = False      # add persistent per-dealer price effects (tested: −€229, off)
     lanes_v9: bool = False       # the v9 branch's per-lane competitor factors (798 lanes; tested: +€41, off)
@@ -408,7 +414,12 @@ class Dispatcher(Desk):
                 margin = price * (1 - pl * p.late_cost) - fee - pl * lam * (1 + p.sla_gain * pressure * 10) + tv[0] * (1 - pl) - tv[1] * pl
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
-            if best_x is not None and best_margin >= bar:
+            bar_o = bar
+            if p.bar_adapt and p.day_cap:
+                cap = self.day_capacity(o["deadline"] // DAY)
+                util = (loads.get(o["deadline"] // DAY, 0.0) + nlegs) / cap if cap > 0 else 1.0
+                bar_o = bar * min(p.bar_hi, max(p.bar_lo, util / p.bar_util_ref))
+            if best_x is not None and best_margin >= bar_o:
                 self.qlog.append({"rid": request["id"], "opt": o["kind"], "pl": round(pl, 4), "sl": round(sl, 4), "fee": round(fee, 2),
                                   "x": round(best_x, 3), "slack": round(slack, 1), "pressure": round(pressure, 4)})
                 prices[o["kind"]] = int(lst * best_x * p.price_mult * 100)
