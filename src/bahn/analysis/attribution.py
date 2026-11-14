@@ -5,6 +5,15 @@ roster, decisions). The server's ledger sums exactly to the score's margin; ever
     driver fees, waiting, release fees, extra drive  the gig's orders, split by typical fee (referenceFee per car)
 
     python -m bahn.analysis.attribution attr          # tag prefix of the saved weeks
+
+Findings (current defaults, 8 weeks bt-1..6, ho-3, st-25; EUR 14,256/wk, 391 orders/wk, EUR 36.4 per order):
+  * No segment loses money on average. Thinnest: last-minute singles (8-16 h slack at the quote, ~4/wk, EUR 4/order:
+    realised fee 1.74x typical against 1.35x modelled), short lanes < 100 km (EUR 19/order), quotes < 1.2x list
+    (EUR 17). The loss is in single orders: late ones (9/wk, -EUR 22 each, -EUR 203/wk), cancelled/undelivered.
+  * The cost model is conservative: modelled fee 1.05x typical vs 0.94x realised (pairs realise 0.80x),
+    P(late) 6.4% modelled vs 2.2% realised. Notes: realised fee 1.03x with a note vs 1.04x without (singles), but
+    the quote adds 15% for a note, and we win 40% of quoted note requests against 54% without.
+  * note_fee=1.0: +EUR 356/wk, t=3.56 on 44 weeks (+25 orders/wk, mean on-time -0.3 pt, worst 91.6% vs 91.4%).
 """
 from __future__ import annotations
 
