@@ -367,3 +367,18 @@ All six worlds stay above the 92% mission bar and the 90% ranking cut (worst 93.
 mixed candidate: 4 seeds up, 2 down, and ev-4 loses 3.1 points of on-time. Per the rule "do not
 promote on an overall mean", it goes to the unseen validation panels (vb-1..6, vc-1..4) before any
 decision; v9 remains the fallback.
+
+## Round-6 safety and partner-bank evidence
+
+- Partner-bank pilot (seed bt-1, level 8, frozen v9): EUR13,579 / 408 won / 98.8% on time, ranked,
+  62 s. Accounting identity verified exactly: the sum of event-ledger lines equals the score margin
+  (EUR13,578.86). Partner cached per-seed baselines are not in the shared repo, so a bank comparison
+  needs either their numbers or both policies run on the same seeds.
+- Safety controller (projected late share from booking model) had no effect: risk_max 2.0-2.6%,
+  because the booking model believes unbooked orders will book. Realised late share (7.8% by
+  Tuesday on vb-2) is the useful signal but arrives after the first damage.
+- Fee-rescue response tested on vb-2 and ev-1: vb-2 5,947/91.0% (+0.7 pt, -4,226 EUR),
+  ev-1 13,667/96.8% (-4,120 EUR, +0.3 pt). Rejected.
+- Realised-share short-off response (quote only within_3_days above 5%): threshold never reached
+  while quotes still flow; 4% retest running. Interim: the 90.3% week looks intrinsic to that seed
+  for this policy family; the documented safe alternative is gate 0.15 + selection bar EUR5.

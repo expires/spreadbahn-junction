@@ -150,3 +150,32 @@ selection bar EUR5: 97.2% on the ev panel) at a known cost of ~EUR300-500/week.
 - If risk_off_short works on vb-2 without hurting ev-4, it becomes the safety fallback; if not,
   the documented safe setting (gate 0.15 + select bar EUR5: 97.2% on ev) remains the alternative
   with its known ~EUR300-500/week margin cost.
+
+### D15 update (partner-bank pilot, one seed) - VERIFIED MECHANICS
+
+Pilot: frozen v9 (shipped defaults) on seed bt-1 (first seed of the partner's backtest bank),
+level 8, run through our own quick_test/Dispatcher. Result: margin EUR13,579, 408 won, 98.8%
+on time, ranked, 62 s. Accounting identity verified exactly: sum of the event ledger lines
+(revenue 35,711.08 - driver_fee 21,830.79 - failed_visit 128.72 - waiting 60.00 - late_refund 87.32
+- release_fee 25.39) = EUR13,578.86 = the score's margin. So the simulator version, level-8 world
+settings and the margin accounting match what our system expects.
+Limitation: the partner's cached per-seed baseline numbers are not present in the shared repo
+(their runs/ directory is gitignored and empty here), so we cannot diff against their cached
+baseline directly; a fair comparison needs either their per-seed numbers or both policies run on
+the same bank. The bank is also not a clean holdout for their policy (they tuned on it).
+
+### D14 update 2 (safety responses actually tested on the hard week vb-2)
+
+- projection-based controller (target 0.02-0.05, gain up to 120): no effect. Instrumented: the
+  model's projected late share never exceeded 2.6% because the booking model believes unbooked
+  orders will book (risk_max 0.0205 ev-4, 0.0261 vb-2). The realised late share is the useful
+  signal (vb-2 7.8% by Tuesday), but by then some damage is done.
+- realised-share "quote only within_3_days" response at 5%: never triggered during quoting
+  (vb-2 realised share was 4.9% at the last moment quotes were still flowing), so identical to v9.
+  Retested at 4% threshold on vb-2.
+- fee-rescue response (rescue_h=24, mult 1.35): vb-2 5,947 @91.0% (-EUR4,226 for +0.7 pt),
+  ev-1 13,667 @96.8% (-EUR4,120 for +0.3 pt) -> REJECTED as a general response.
+- Interim conclusion: the 90.3% week is largely intrinsic to that seed for this policy family.
+  The punctuality-safe alternative remains gate 0.15 + select bar EUR5 (ev 14,524 @97.2%,
+  vb 13,072 @96.5%, vc 12,519 @97.0%) at a measured margin cost; choosing between it and the
+  shipped margin-first v9 is the final risk decision.
