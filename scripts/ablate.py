@@ -18,11 +18,13 @@ ABLATIONS = [
     ("Full system", {}),
     ("− persistent lane prices", {"lanes": False}),
     ("− day-level / price-war / outage learner", {"regime": False}),
-    ("− two cars, one driver (return pairs)", {"combine": False}),
+    ("− archive-fitted lateness model (our 6-week model instead)", {"late_v9": False}),
+    ("− two-car chains (return pairs only)", {"pair_chains": False}),
+    ("− all two-car gigs", {"combine": False}),
     ("− backhaul-aware quotes", {"pair_quote": 0.0}),
     ("− note reader (kit's keyword reader instead)", {"notes_v2": False}),
     ("− day capacity & edge-day risk", {"day_cap": 0.0, "edge_late": (0.0, 0.0, 0.0)}),
-    ("− holding gigs until 36 h before pickup", {"hold_hours": 0.0}),
+    ("− holding gigs until 36 h before pickup", {"hold_hours": 1000.0}),
     ("− late-order shadow price λ", {"late_shadow": 0.0}),
 ]
 
