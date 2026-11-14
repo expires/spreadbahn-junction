@@ -48,3 +48,34 @@ Offline gate trade-off with the refit P(late) on the kept runs (outstanding back
   p<=0.12 -> 10,049 / 3.7%.
 Gating alone cannot reach 97% on time without losing 30-40% of the margin; the reliability lever
 has to be operational (book risky cars earlier / direct offers), not only selection.
+
+## Final candidate (all defaults in dispatch.py) and fresh-seed validation
+
+q6_final = hold 0 + conservative bundling (link<=35, drive<=280, deadline gap<=18 h)
+          + supply P(late)/expected fee + gate_pl=0.30, six archived seeds, 2 parallel:
+
+  ev-1 15,102 / 434 / 95.4%   ev-2 12,199 / 435 / 94.9%   ev-3 9,623 / 297 / 98.0%
+  ev-4 17,044 / 495 / 90.7%   ev-5 13,520 / 393 / 96.4%   ev-6 7,948 / 275 / 94.9%
+  MEAN EUR12,573  worst on time 90.7%  ranked 6/6        (v7: EUR11,275 / 92.4% / 6/6)
+
+Fresh seeds (never used for tuning), v7 vs final, paired:
+
+  vb-1 12,379/89.1% -> 14,353/92.5%     vb-2 7,708/82.1% -> 7,763/85.1%
+  vb-3 10,701/97.6% -> 11,387/95.9%     vb-4 14,883/96.2% -> 16,107/96.0%
+  MEAN EUR11,418 -> EUR12,402 (+8.6%), ranked runs 2/4 -> 3/4
+
+Shipped defaults reproduce q6_final exactly: quick_test --seeds ev-1 with no overrides gives
+EUR15,102 / 434 orders / 95.4%.
+
+Gate threshold A/B (same config): 0.20 vs 0.30 vs 0.45
+  ev-1  15,253/95.2 (gated 90)   15,102/95.4 (gated 50)   15,076/95.3 (gated 37)
+  ev-4  16,442/89.1 (gated 61)   17,044/90.7 (gated 34)   17,017/89.0 (gated 9)
+  vb-2   8,207/86.4 (gated 35)    7,763/85.1 (gated 21)    7,423/84.3 (gated 7)
+0.30 chosen: best on the hard ev-4, close elsewhere.
+
+Direct offers (offer_h=8, no bundling):
+  ev-4 15,447/90.8 -> 15,425/90.2;  ev-2 11,791/93.3 -> 11,710/94.2  (neutral, off by default)
+
+Rejoin/loop test after promotion: final.py preflight PASS on the live server (404 poll path,
+no world created). test_final_rejoin.py replays archived worlds through dispatch.py; the only
+changed expectation is the held-order-timer check (v8 has hold_hours=0 so it has no held timers).

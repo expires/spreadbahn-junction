@@ -19,7 +19,7 @@ from dataclasses import replace
 
 import importlib
 import os as _os
-D = importlib.import_module(_os.environ.get("DISPATCH_MODULE", "dispatch_next"))
+D = importlib.import_module(_os.environ.get("DISPATCH_MODULE", "dispatch"))
 from spread.client import Client, SpreadError
 
 LIVE: set[str] = set()

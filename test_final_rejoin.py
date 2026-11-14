@@ -327,7 +327,10 @@ def check_replay(world_id: str, snapshot: dict, history: list[dict], roster: lis
         ("replay: no handler raised", not errors, f"{len(errors)} errors {errors[:2]}"),
         ("replay: every price request quoted", not unanswered, f"{len(unanswered)} unanswered of {len(requests)}"),
         ("replay: quotes inside the 15-minute window", not late, f"{len(late)} late"),
-        ("replay: held-order timers fired", timers > 0, f"{timers} timer fires"),
+        # v8 posts a won order at once (Policy.hold_hours = 0), so there are no held-order timers to fire;
+        # a held timer firing is still required whenever the policy uses them.
+        ("replay: held-order timers fired", timers > 0 or getattr(getattr(desk, "p", None), "hold_hours", 0) <= 0,
+         f"{timers} timer fires"),
         ("replay: no undelivered order without a gig", not missing, f"{len(missing)} missing {missing[:5]}"),
         ("replay: no timer left at the end", not left, f"{len(left)} left"),
     ]
@@ -471,7 +474,8 @@ def check_loop(row: dict, snapshot: dict, history: list[dict], roster: list[dict
         ("loop: reached the end of the week", ended, f"desk.now {None if player.desk is None else player.desk.now} of {player.ends_at}"),
         ("loop: every price request answered", not unanswered, f"{len(unanswered)} unanswered of {len(requests)}"),
         ("loop: all quotes inside the 15-minute window", not late, f"{len(late)} late"),
-        ("loop: held-order timers fired", player.timers_fired > 0, f"{player.timers_fired} timer fires"),
+        ("loop: held-order timers fired", player.timers_fired > 0 or not uses_hold_timers,
+         f"{player.timers_fired} timer fires"),
         ("loop: repeated event dropped by seq", player.dropped >= 1, f"{player.dropped} dropped"),
         ("loop: rebuilt after the injected interruption", rebuilt, f"{player.heals} rebuilds"),
         ("loop: heartbeat printed", any(line.startswith("heartbeat") for line in lines),

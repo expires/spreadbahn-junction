@@ -1,0 +1,481 @@
+{
+ "policy": {
+  "comp0": "1.37",
+  "slope": "8.7",
+  "comp_lr": "0.02",
+  "comp_lo": "1.22",
+  "comp_hi": "1.6",
+  "fee_open": "0.9",
+  "fee_steps": "((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))",
+  "hold_hours": "36.0",
+  "exp_fee": "((4, 2.0), (8, 1.55), (16, 1.25), (30, 1.05), (1000000000.0, 0.95))",
+  "p_late": "((4, 0.6), (8, 0.3), (16, 0.12), (30, 0.06), (1000000000.0, 0.03))",
+  "late_cost": "0.45",
+  "late_shadow": "80.0",
+  "km_late": "0.0",
+  "sup_b": "(4.23, -0.816, -0.469, -0.425)",
+  "sup_base": "0.045",
+  "sup_fee": "0.6",
+  "max_km": "520.0",
+  "min_margin": "8.0",
+  "price_mult": "1.0",
+  "min_slack_h": "0.0",
+  "supply_gate": "2.0",
+  "sla_target": "0.94",
+  "sla_gain": "2.0",
+  "sla_prior_n": "120",
+  "decline_mult": "4.0"
+ },
+ "results": [
+  {
+   "world": "w022647418ece4ac17c1c",
+   "margin": 17866.58232397258,
+   "orders": 270.3424917838046,
+   "on_time": 0.9500000000000007,
+   "recorded": 3308.36,
+   "recorded_orders": 106,
+   "recorded_on_time": 0.9716981132075472
+  },
+  {
+   "world": "w0b92545027cf0caebc50",
+   "margin": 29843.201420391302,
+   "orders": 422.0542684508395,
+   "on_time": 0.9500000000000016,
+   "recorded": 6744.04,
+   "recorded_orders": 367,
+   "recorded_on_time": 0.9455040871934605
+  },
+  {
+   "world": "w12a1f6c172e834f9d70b",
+   "margin": 29657.696615909514,
+   "orders": 399.6028063798566,
+   "on_time": 0.9499999999999993,
+   "recorded": 1881.16,
+   "recorded_orders": 141,
+   "recorded_on_time": 0.9361702127659575
+  },
+  {
+   "world": "w1868306a794775aeb226",
+   "margin": 15240.001437248493,
+   "orders": 228.5165744356085,
+   "on_time": 0.9499999999999994,
+   "recorded": 13117.31,
+   "recorded_orders": 471,
+   "recorded_on_time": 0.9575371549893843
+  },
+  {
+   "world": "w207dc4902744e2203606",
+   "margin": 18503.297061052086,
+   "orders": 289.0760909591927,
+   "on_time": 0.9499999999999996,
+   "recorded": 13789.19,
+   "recorded_orders": 417,
+   "recorded_on_time": 0.9448441247002398
+  },
+  {
+   "world": "w20993763f0a7c9519e44",
+   "margin": 19822.378110866906,
+   "orders": 294.25365297627116,
+   "on_time": 0.9499999999999995,
+   "recorded": 3394.01,
+   "recorded_orders": 140,
+   "recorded_on_time": 0.9642857142857143
+  },
+  {
+   "world": "w216599d6648cf00be26d",
+   "margin": 17657.086130303753,
+   "orders": 262.47960806423544,
+   "on_time": 0.9499999999999987,
+   "recorded": 6134.6,
+   "recorded_orders": 530,
+   "recorded_on_time": 0.7679245283018868
+  },
+  {
+   "world": "w2b8c7e8b2b006f47d504",
+   "margin": 24215.171880947524,
+   "orders": 343.52747889278726,
+   "on_time": 0.9499999999999977,
+   "recorded": 4065.57,
+   "recorded_orders": 587,
+   "recorded_on_time": 0.7700170357751278
+  },
+  {
+   "world": "w345e9a04f7e49da832fc",
+   "margin": 11517.388468334651,
+   "orders": 199.145924183153,
+   "on_time": 0.9500000000000024,
+   "recorded": 10671.2,
+   "recorded_orders": 579,
+   "recorded_on_time": 0.8480138169257341
+  },
+  {
+   "world": "w365a9570b3d86b338397",
+   "margin": 28995.266535902967,
+   "orders": 383.8604821962148,
+   "on_time": 0.950000000000001,
+   "recorded": 5368.27,
+   "recorded_orders": 176,
+   "recorded_on_time": 0.9545454545454546
+  },
+  {
+   "world": "w3953b4ba6f0fdbadbff5",
+   "margin": 24281.901600408502,
+   "orders": 353.75447930684646,
+   "on_time": 0.9499999999999977,
+   "recorded": 6414.3,
+   "recorded_orders": 364,
+   "recorded_on_time": 0.945054945054945
+  },
+  {
+   "world": "w4204dda5e5817bc16464",
+   "margin": 33575.60453926466,
+   "orders": 418.26600730621914,
+   "on_time": 0.9499999999999993,
+   "recorded": 14307.53,
+   "recorded_orders": 517,
+   "recorded_on_time": 0.9032882011605415
+  },
+  {
+   "world": "w49c4fda4a4453c06263a",
+   "margin": 27868.257007999524,
+   "orders": 360.2785217185762,
+   "on_time": 0.9499999999999995,
+   "recorded": 8897.58,
+   "recorded_orders": 317,
+   "recorded_on_time": 0.9558359621451105
+  },
+  {
+   "world": "w57b1c51651060633a1b9",
+   "margin": 21506.67418430401,
+   "orders": 326.6880257792923,
+   "on_time": 0.9500000000000033,
+   "recorded": 13365.43,
+   "recorded_orders": 455,
+   "recorded_on_time": 0.9098901098901099
+  },
+  {
+   "world": "w6534e34c2a4eebf53989",
+   "margin": 21961.393904408164,
+   "orders": 319.3062011162242,
+   "on_time": 0.9500000000000012,
+   "recorded": 9308.61,
+   "recorded_orders": 341,
+   "recorded_on_time": 0.9648093841642229
+  },
+  {
+   "world": "w6a25c26df5faaf2c3f49",
+   "margin": 23744.2355830383,
+   "orders": 327.4743215066023,
+   "on_time": 0.9500000000000001,
+   "recorded": 13913.41,
+   "recorded_orders": 471,
+   "recorded_on_time": 0.9596602972399151
+  },
+  {
+   "world": "w6cdaae589c0a89fca437",
+   "margin": 36413.44273477415,
+   "orders": 431.10059739001497,
+   "on_time": 0.9499999999999988,
+   "recorded": 3869.97,
+   "recorded_orders": 128,
+   "recorded_on_time": 0.9609375
+  },
+  {
+   "world": "w6f3df99de50c4e74976d",
+   "margin": 10486.146692710205,
+   "orders": 183.56244417916824,
+   "on_time": 0.949999999999998,
+   "recorded": 4022.75,
+   "recorded_orders": 158,
+   "recorded_on_time": 0.9177215189873418
+  },
+  {
+   "world": "w73485d173a2c00c371a3",
+   "margin": 26791.670473474835,
+   "orders": 338.03151674696034,
+   "on_time": 0.9500000000000021,
+   "recorded": 10994.88,
+   "recorded_orders": 445,
+   "recorded_on_time": 0.9483146067415731
+  },
+  {
+   "world": "w76f80500870b00353051",
+   "margin": 30547.333307531888,
+   "orders": 415.03988450767963,
+   "on_time": 0.9500000000000017,
+   "recorded": 6414.3,
+   "recorded_orders": 364,
+   "recorded_on_time": 0.945054945054945
+  },
+  {
+   "world": "w77fb994dfa55a92fb837",
+   "margin": 19907.068737409216,
+   "orders": 313.4357945901396,
+   "on_time": 0.95,
+   "recorded": 361.37,
+   "recorded_orders": 434,
+   "recorded_on_time": 0.836405529953917
+  },
+  {
+   "world": "w7b86c65f3f3df2b1e1ac",
+   "margin": 15145.382570304222,
+   "orders": 259.9818173491725,
+   "on_time": 0.9499999999999997,
+   "recorded": 10978.51,
+   "recorded_orders": 483,
+   "recorded_on_time": 0.8923395445134575
+  },
+  {
+   "world": "w7f439616a94889783005",
+   "margin": 29942.15922020602,
+   "orders": 392.0833671689043,
+   "on_time": 0.9500000000000003,
+   "recorded": 12044.14,
+   "recorded_orders": 495,
+   "recorded_on_time": 0.8666666666666667
+  },
+  {
+   "world": "w8235759d701d7498b86f",
+   "margin": 30425.499523309012,
+   "orders": 384.0132772363568,
+   "on_time": 0.9500000000000005,
+   "recorded": 13913.41,
+   "recorded_orders": 471,
+   "recorded_on_time": 0.9596602972399151
+  },
+  {
+   "world": "w8734abbd6401cebf194e",
+   "margin": 23641.58026576573,
+   "orders": 317.08008612579573,
+   "on_time": 0.9500000000000012,
+   "recorded": 3469.08,
+   "recorded_orders": 532,
+   "recorded_on_time": 0.8139097744360902
+  },
+  {
+   "world": "w87d1c89610175555b751",
+   "margin": 22760.036325048794,
+   "orders": 318.4281884413966,
+   "on_time": 0.950000000000001,
+   "recorded": 2004.48,
+   "recorded_orders": 72,
+   "recorded_on_time": 0.9583333333333334
+  },
+  {
+   "world": "w87e30e55eca40e31972d",
+   "margin": 18719.303676328076,
+   "orders": 284.4688412133967,
+   "on_time": 0.9500000000000003,
+   "recorded": 8886.79,
+   "recorded_orders": 322,
+   "recorded_on_time": 0.9596273291925466
+  },
+  {
+   "world": "w8cbffa3ce6c617f6f770",
+   "margin": 18578.238528394933,
+   "orders": 299.65736318465264,
+   "on_time": 0.9500000000000015,
+   "recorded": 13805.68,
+   "recorded_orders": 473,
+   "recorded_on_time": 0.9386892177589852
+  },
+  {
+   "world": "w8d4b059cf8ac43137629",
+   "margin": 26047.117823583652,
+   "orders": 353.20608703743545,
+   "on_time": 0.9499999999999998,
+   "recorded": 15050.17,
+   "recorded_orders": 559,
+   "recorded_on_time": 0.8926654740608229
+  },
+  {
+   "world": "w8e78797e549a91d011f3",
+   "margin": 30323.046835641406,
+   "orders": 404.6637738972232,
+   "on_time": 0.9499999999999998,
+   "recorded": 6970.25,
+   "recorded_orders": 196,
+   "recorded_on_time": 0.9642857142857143
+  },
+  {
+   "world": "w972e54c6701e83e534d9",
+   "margin": 33138.39723592826,
+   "orders": 418.63269625451534,
+   "on_time": 0.9500000000000004,
+   "recorded": 5952.42,
+   "recorded_orders": 202,
+   "recorded_on_time": 0.9455445544554455
+  },
+  {
+   "world": "w9ce48ff2dfc3b561993a",
+   "margin": 25549.12529117578,
+   "orders": 340.19245042376133,
+   "on_time": 0.9499999999999992,
+   "recorded": 9981.27,
+   "recorded_orders": 431,
+   "recorded_on_time": 0.8677494199535963
+  },
+  {
+   "world": "wa9867748fcad44019fe4",
+   "margin": 23437.996379889148,
+   "orders": 341.23074262624124,
+   "on_time": 0.9500000000000004,
+   "recorded": 13698.09,
+   "recorded_orders": 406,
+   "recorded_on_time": 0.9458128078817734
+  },
+  {
+   "world": "wb5ebedea662cb1d6ec70",
+   "margin": 33993.69575326799,
+   "orders": 442.0761381093346,
+   "on_time": 0.9500000000000013,
+   "recorded": 6553.86,
+   "recorded_orders": 257,
+   "recorded_on_time": 0.953307392996109
+  },
+  {
+   "world": "wb74393aa7608bdb0ecfb",
+   "margin": 26731.314002089566,
+   "orders": 380.0344732999838,
+   "on_time": 0.9499999999999995,
+   "recorded": 6937.97,
+   "recorded_orders": 367,
+   "recorded_on_time": 0.9509536784741145
+  },
+  {
+   "world": "wc148904189d47af2e88d",
+   "margin": 38855.05239165498,
+   "orders": 484.02263422700236,
+   "on_time": 0.9499999999999995,
+   "recorded": 14351.98,
+   "recorded_orders": 455,
+   "recorded_on_time": 0.9538461538461539
+  },
+  {
+   "world": "wc6b8177c3f1a4b74325a",
+   "margin": 24557.88603322945,
+   "orders": 324.482342481319,
+   "on_time": 0.9499999999999988,
+   "recorded": 4750.15,
+   "recorded_orders": 396,
+   "recorded_on_time": 0.9040404040404041
+  },
+  {
+   "world": "wc6c932276154bd265b46",
+   "margin": 20630.10312507851,
+   "orders": 324.73713975452165,
+   "on_time": 0.9499999999999983,
+   "recorded": 2221.66,
+   "recorded_orders": 151,
+   "recorded_on_time": 0.9536423841059603
+  },
+  {
+   "world": "wcc2cc2644f568a62dc2b",
+   "margin": 27311.802046633253,
+   "orders": 371.0336359875551,
+   "on_time": 0.9499999999999981,
+   "recorded": 12243.14,
+   "recorded_orders": 572,
+   "recorded_on_time": 0.8671328671328671
+  },
+  {
+   "world": "wcce8c2a52ffd2cbc9adb",
+   "margin": 41094.14388684663,
+   "orders": 511.1577118534201,
+   "on_time": 0.9500000000000002,
+   "recorded": 6386.11,
+   "recorded_orders": 323,
+   "recorded_on_time": 0.9535603715170279
+  },
+  {
+   "world": "wd1530545a9d08201f1ec",
+   "margin": 18711.254631456482,
+   "orders": 298.1062399938606,
+   "on_time": 0.9500000000000002,
+   "recorded": 10117.35,
+   "recorded_orders": 469,
+   "recorded_on_time": 0.8614072494669509
+  },
+  {
+   "world": "wd4351bd0721988402ad9",
+   "margin": 33519.82606850972,
+   "orders": 419.9272937798319,
+   "on_time": 0.949999999999997,
+   "recorded": 14351.98,
+   "recorded_orders": 455,
+   "recorded_on_time": 0.9538461538461539
+  },
+  {
+   "world": "we1e09977a5af9ddc0dcc",
+   "margin": 13529.443018221767,
+   "orders": 225.31074372776428,
+   "on_time": 0.9500000000000004,
+   "recorded": 15050.17,
+   "recorded_orders": 559,
+   "recorded_on_time": 0.8926654740608229
+  },
+  {
+   "world": "we1fdb695c0387c5ef2ff",
+   "margin": 54937.57458876426,
+   "orders": 614.2352193332802,
+   "on_time": 0.9500000000000012,
+   "recorded": 13525.31,
+   "recorded_orders": 525,
+   "recorded_on_time": 0.8933333333333333
+  },
+  {
+   "world": "wead8d40c723ac104d86e",
+   "margin": 20417.589138191634,
+   "orders": 295.68513522413036,
+   "on_time": 0.950000000000001,
+   "recorded": 11417.59,
+   "recorded_orders": 485,
+   "recorded_on_time": 0.9422680412371134
+  },
+  {
+   "world": "webf2a659d7a3a20dfee3",
+   "margin": 10129.995573486774,
+   "orders": 178.1510625904911,
+   "on_time": 0.9499999999999992,
+   "recorded": 4497.87,
+   "recorded_orders": 165,
+   "recorded_on_time": 0.9151515151515152
+  },
+  {
+   "world": "wefaef52f556b3c3291b3",
+   "margin": 16430.83066419863,
+   "orders": 259.1612495019841,
+   "on_time": 0.9499999999999998,
+   "recorded": 8897.58,
+   "recorded_orders": 317,
+   "recorded_on_time": 0.9558359621451105
+  },
+  {
+   "world": "wf24d56d8f09a1c850103",
+   "margin": 17338.18626210046,
+   "orders": 268.1432150285787,
+   "on_time": 0.9499999999999994,
+   "recorded": 8806.04,
+   "recorded_orders": 288,
+   "recorded_on_time": 0.9479166666666666
+  },
+  {
+   "world": "wfd2de57df905b9591552",
+   "margin": 25104.37494686359,
+   "orders": 332.92454309436005,
+   "on_time": 0.9500000000000005,
+   "recorded": 4201.05,
+   "recorded_orders": 155,
+   "recorded_on_time": 0.967741935483871
+  },
+  {
+   "world": "wffc911a3d417153ecdbf",
+   "margin": 38824.6783734732,
+   "orders": 469.23359035912546,
+   "on_time": 0.9500000000000026,
+   "recorded": 13352.63,
+   "recorded_orders": 454,
+   "recorded_on_time": 0.9559471365638766
+  }
+ ]
+}
