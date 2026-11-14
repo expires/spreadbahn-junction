@@ -21,11 +21,13 @@ CANDIDATES = [
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--suite", choices=SUITES, default="full")
+    ap.add_argument("--cand", action="append", default=[], help="a candidate as 'k=v k=v'; repeatable (default: the built-in list)")
     a = ap.parse_args()
+    cands = [[]] + [c.split() for c in a.cand] if a.cand else CANDIDATES
     seeds = SUITES[a.suite]
     base = run(Policy(), seeds, free_slots(), "fr-base")
     print(f"{'candidate':38} {'€/week':>8} {'Δ':>7} {'t':>5} {'worst':>6} {'2nd':>6} {'p10 €':>8} {'<92.5%':>6}")
-    for cand in CANDIDATES:
+    for cand in cands:
         res = run(parse_set(cand), seeds, free_slots(), "fr-cand") if cand else base
         ks = [s for s in seeds if s in res and s in base]
         m = [res[s]["margin"] for s in ks]
