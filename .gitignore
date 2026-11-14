@@ -7,3 +7,4 @@ __pycache__/
 runs/livesim/
 runs/live-*.pkl
 runs/live-*.pkl.tmp
+runs/practice_worlds.txt

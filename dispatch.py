@@ -28,7 +28,8 @@ from spread.starter import DAY, HOUR, WAKE_ON, Desk, steep, undelivered
 from spread.types import FeeStep, Order, PriceRequest
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-LIVE: set = set()  # practice worlds this process created and has not finished: deleted on exit
+LIVE: set = set()
+REGISTRY = os.path.join(ROOT, "runs", "practice_worlds.txt")  # practice worlds this process created and has not finished: deleted on exit
 
 
 def _cleanup() -> None:
@@ -852,6 +853,8 @@ def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dic
                 raise
             time.sleep(20)
     LIVE.add(world.id)
+    with open(REGISTRY, "a") as fh:  # survives a hard kill: `python dispatch.py --cleanup` deletes what is left
+        fh.write(world.id + "\n")
     t0 = time.time()
     try:
         desk = play_practice(world, level, policy, road)
@@ -1080,9 +1083,23 @@ def run_board_levels(levels: list[int], policy: Policy) -> None:
                 print(f"ranking thread failed: {e!r}", file=sys.stderr, flush=True)
 
 
+def cleanup_registry() -> None:
+    """Deletes practice worlds from our registry that have not ended (never ranking runs: those are not registered)."""
+    if not os.path.exists(REGISTRY):
+        return
+    client = Client()
+    mine = set(open(REGISTRY).read().split())
+    for w in client.worlds():
+        if w["worldId"] in mine and not w["ended"] and not w["boardRun"]:
+            client.world(w["worldId"]).delete()
+            print(f"deleted {w['worldId']}")
+    open(REGISTRY, "w").close()
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--board", action="store_true", help="play the next ranking run")
+    ap.add_argument("--cleanup", action="store_true", help="delete unfinished practice worlds this tool created (registry)")
     ap.add_argument("--final", action="store_true", help="play the live final (or a test final)")
     ap.add_argument("--level", type=int, default=8)
     ap.add_argument("--levels", default="", help="with --board: comma-separated levels, played in parallel")
@@ -1100,6 +1117,8 @@ def main() -> None:
         cur, val = getattr(pol, k), json.loads(v)
         val = tuple(tuple(x) if isinstance(x, list) else x for x in val) if isinstance(cur, tuple) else type(cur)(val)
         pol = replace(pol, **{k: val})
+    if a.cleanup:
+        return cleanup_registry()
     if a.final:
         return run_final(pol)
     if a.board:
