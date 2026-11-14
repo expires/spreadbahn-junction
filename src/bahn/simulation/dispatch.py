@@ -1196,11 +1196,22 @@ def cleanup_registry() -> None:
         return
     client = Client()
     mine = set(open(REGISTRY).read().split())
-    for w in client.worlds():
-        if w["worldId"] in mine and not w["ended"] and not w["boardRun"]:
-            client.world(w["worldId"]).delete()
-            print(f"deleted {w['worldId']}")
-    open(REGISTRY, "w").close()
+    live = {w["worldId"]: w for w in client.worlds() if not w["ended"]}
+    keep = set()
+    for wid in mine:
+        w = live.get(wid)
+        if w is None:
+            continue                      # ended or gone: drop from the registry
+        if w["boardRun"]:
+            keep.add(wid)                 # never delete a ranking run
+            continue
+        if wid in LIVE:
+            keep.add(wid)                 # this process is still playing it
+            continue
+        client.world(wid).delete()
+        print(f"deleted {wid}")
+    with open(REGISTRY, "w") as fh:     # keep only what is still ours and alive
+        fh.write("".join(f"{w}\n" for w in sorted(keep)))
 
 
 def main() -> None:
