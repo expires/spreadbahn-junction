@@ -21,7 +21,7 @@ from dataclasses import asdict, dataclass, field, replace
 from typing import Optional
 
 from bahn.models import nemotron_notes, notes
-from bahn.models.regime import Regime
+from bahn.models.regime import PriorMix, Regime
 from bahn.paths import ROOT
 from spread import starter
 from spread.client import Client, SpreadError, Unreachable
@@ -71,6 +71,8 @@ class Policy:
     fee_mult: float = 1.0        # probe lever: scales every posted fee schedule
     tradein_fee: float = 1.0     # fee-estimate multiple for a trade-in (two cars, one price): realised −€18/order at 1.0
     private_fee: float = 1.3     # fee-estimate multiple when a stop is a private address (realised €10/order vs €39)
+    note_fee: float = 1.15       # fee-estimate multiple when the request has a note (attribution: realised fee/typical
+                                 # 1.03 with a note vs 1.04 without, singles, 8 weeks; we win 40% of quoted notes vs 54%)
     fee_open_tiers: tuple = ()   # ((supply index at least, opening multiple), ...), highest first; () = flat fee_open
     fee_steps: tuple = ((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))
     hold_hours: float = 44.0     # post an order this many hours before lastPickupAt (44 h: +€213/wk vs 36 h on 44 weeks)
@@ -113,6 +115,11 @@ class Policy:
     bar_lo: float = 0.25         # floor of the bar as a share of min_margin (idle days)
     bar_hi: float = 1.6          # ceiling (full days)
     regime_sd0: float = 0.07     # prior sd of the competitor's log level: wider = learns a cheap/dear week faster
+    # "Learn fast early, then settle" (regime.py, warmup_eval.py), all off by default:
+    regime_mix: float = 0.0      # prior weight of a second, wide-prior learner (PriorMix): Bayes hands it the weight only
+    regime_mix_sd: float = 0.20  # when the week is far from the prior (sd of its log level prior)
+    regime_warm_n: int = 0       # extra level variance on the session's first n outcomes, decaying to 0 (0 = off)
+    regime_warm_q: float = 0.03  # its sd per outcome at the start
     dealer_fx: bool = False      # add persistent per-dealer price effects (tested: −€229, off)
     lanes_v9: bool = False       # the v9 branch's per-lane competitor factors (798 lanes; tested: +€41, off)
     late_v9: bool = True         # P(late) from the v9 branch's archive-fitted model (74,731 orders, OOF AUC 0.79)
@@ -186,8 +193,13 @@ class Dispatcher(Desk):
         # The competitor's price level by level, from the rules: near list up to 6, 1.12-1.38 at 7, 1.26-1.54 at 8.
         self.comp_lo, self.comp_hi, comp0 = {7: (1.05, 1.45, 1.25), 8: (policy.comp_lo, policy.comp_hi, policy.comp0)}.get(level, (0.85, 1.2, 1.0))
         self.log_comp = math.log(comp0)
-        self.regime = Regime(road.places, level0=math.log(comp0), first_day=now // DAY, sd_level0=policy.regime_sd0) \
-            if policy.regime and level >= 8 and road.places else None
+        self.regime = None
+        if policy.regime and level >= 8 and road.places:
+            kw = dict(level0=math.log(comp0), first_day=now // DAY, warm_n=policy.regime_warm_n, warm_q=policy.regime_warm_q)
+            self.regime = Regime(road.places, sd_level0=policy.regime_sd0, **kw)
+            if policy.regime_mix > 0:
+                self.regime = PriorMix([self.regime, Regime(road.places, sd_level0=policy.regime_mix_sd, **kw)],
+                                       [1 - policy.regime_mix, policy.regime_mix])
         self.lanes = json.load(open(os.path.join(ROOT, "configs", "lane_effects.json"))) if policy.lanes else None
         self.lanes9 = json.load(open(os.path.join(ROOT, "configs", "lane_effects_v9.json"))) if policy.lanes_v9 else None
         self.fee_scale = policy.low_fee_scale if level <= 3 else policy.mid_fee_scale if level <= 6 else 1.0
@@ -351,7 +363,7 @@ class Dispatcher(Desk):
         pressure = max(0.0, self.sla_pressure())
         slack = self.slack_hours(request, o["deadline"])
         sl = self.supply_late(request) + self.congestion(request)
-        fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
+        fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (p.note_fee if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
         pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base)) + pressure)
         lam = p.hedge_lambda if self.aggressive(o["deadline"]) else p.late_shadow
         margin = lst * (1 - pl * p.late_cost) - fee - pl * lam * (1 + p.sla_gain * pressure * 10)
@@ -399,7 +411,7 @@ class Dispatcher(Desk):
             slack = self.slack_hours(request, o["deadline"])
             sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"]) \
                 + self.day_risk(loads, o["deadline"] // DAY, nlegs) + self.edge_risk(o["deadline"], km)
-            fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
+            fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (p.note_fee if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
             if len(request["legs"]) > 1:
                 fee *= p.tradein_fee
             if any(l["pickup"]["privateAddress"] or l["delivery"]["privateAddress"] for l in request["legs"]):
