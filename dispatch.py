@@ -93,7 +93,7 @@ class Policy:
     pair_chains: bool = False         # also pair cars whose second leg does not come back
     snow_late: float = 0.15      # extra P(late) for a leg touching a snowed place on its pickup day
     snow_fee: float = 0.15       # fee uplift for such a leg
-    snow_km: float = 0.0         # and this much more per 100 km of the leg: a long drive into snow rarely finds a driver
+    snow_km: float = 0.08        # and this much more per 100 km of the leg: a long drive into snow rarely finds a driver
     offer_fee: float = 2.0       # x typical fee
     offer_reach: int = 150       # only drivers living within this many road minutes of the pickup
     max_km: float = 520.0        # decline longer lanes
@@ -104,17 +104,14 @@ class Policy:
     sla_prior_n: int = 120       # orders assumed on time, so early noise cannot trip the controller
     decline_mult: float = 4.0    # a declined option is quoted at this x list
     # Day capacity: legs due (by deadline day) against the whole roster. Fridays and the last Monday
-    # collect the next-day and 3-day work of the days before them, and the flu can hit any day.
-    day_cap: float = 0.0         # legs per day per 100 drivers before P(late) rises (0 = off)
-    day_late: float = 0.45       # extra P(late) per unit of day overload
-    day_pend: float = 0.6        # an open quote counts as this share of its legs
-    # Shock detector: a burst of night drops (the flu) means fewer drivers today.
-    flu_drops: int = 0           # drops 00:00-03:00 today that mark a flu day (0 = off)
-    flu_cap: float = 0.7         # today's day capacity is multiplied by this on a flu day
-    flu_fee: float = 0.0         # on a flu day, today's unbooked gigs go at least at this x typical fee at once (0 = off)
+    # collect the next-day and 3-day work of the days before them, and a flu or snow day on a full day
+    # leaves dozens of cars without a driver (ho-3: 136 legs due on a flu Friday, 39 late).
+    day_cap: float = 10.0        # legs per day per 100 drivers before P(late) rises (0 = off)
+    day_late: float = 0.75       # extra P(late) per unit of day overload (before pl_scale)
+    day_pend: float = 0.6        # an open quote counts as this share of its legs (a bulk order is quoted all at once)
     # Edge days: a car due on a Friday or the last Monday has no next business day to catch up on, and
     # long lanes then run late four times as often as midweek (17% vs 4%, 40 runs). Extra P(late) by km:
-    edge_late: tuple = (0.0, 0.0, 0.0)   # under 150 km, 150-300 km, over 300 km
+    edge_late: tuple = (0.07, 0.05, 0.2)  # under 150 km, 150-300 km, over 300 km (before pl_scale)
 
 
 def step_lookup(table: tuple, x: float) -> float:
@@ -160,8 +157,6 @@ class Dispatcher(Desk):
         self.trust: dict[str, int] = {}  # dealer -> orders delivered on time, as the rules count it (max 25, halved on a late one)
         self.settled: set[str] = set()
         self.pend_day: dict[str, tuple[int, float]] = {}  # request id -> (deadline day, weight) of an open quote
-        self.night_drops: dict[int, int] = {}            # day -> gig drops between 00:00 and 03:00
-        self.flu_days: set[int] = set()
 
     # ---------- the SLA controller ----------
     def sla_pressure(self) -> float:
@@ -240,8 +235,7 @@ class Dispatcher(Desk):
         return out
 
     def day_capacity(self, day: int) -> float:
-        cap = self.p.day_cap * len(getattr(self, "roster", []) or []) / 100
-        return cap * (self.p.flu_cap if day in self.flu_days else 1.0)
+        return self.p.day_cap * len(getattr(self, "roster", []) or []) / 100
 
     def day_risk(self, loads: dict[int, float], day: int, legs: int) -> float:
         if not self.p.day_cap:
@@ -256,45 +250,6 @@ class Dispatcher(Desk):
         if day % 7 != 4 and day != 7:
             return 0.0
         return self.p.edge_late[0 if km < 150 else 1 if km < 300 else 2]
-
-    def note_drop(self, at: int, gig_id: Optional[str] = None) -> None:
-        """Counts night drops; a burst of them marks today a flu day. On a flu day a dropped gig of today goes up at once."""
-        day = at // DAY
-        if at % DAY < 3 * HOUR:
-            self.night_drops[day] = self.night_drops.get(day, 0) + 1
-            if self.p.flu_drops and day not in self.flu_days and self.night_drops[day] >= self.p.flu_drops:
-                self.flu_days.add(day)
-                self.stats["flu_day"] = day
-                return self.on_flu(day)
-        if day in self.flu_days and gig_id is not None:
-            self.on_flu(day, {gig_id})
-
-    def on_flu(self, day: int, only: Optional[set] = None) -> None:
-        """Raises today's unbooked gigs at once, so the drivers still working see a fee worth the extra trip."""
-        if not self.p.flu_fee:
-            return
-        end, seen = (day + 1) * DAY, set()
-        for oid, o in list(self.orders.items()):
-            if o["status"] != "waiting" or o["lastPickupAt"] >= end or oid in self.urgent:
-                continue
-            for gig_id in self.gigs_of(oid):
-                if gig_id in self.booked or gig_id not in self.posts or gig_id in seen or (only is not None and gig_id not in only):
-                    continue
-                seen.add(gig_id)
-                post = self.posts[gig_id]
-                ref = sum(self.requests[s["orderId"]]["referenceFeeCents"] / len(self.orders[s["orderId"]]["legs"])
-                          for s in post["stops"] if s["kind"] == "pickup" and s["orderId"] in self.orders)
-                if not ref:
-                    continue
-                if len({s["orderId"] for s in post["stops"]}) > 1:
-                    ref *= self.p.pair_alpha_return
-                last = min(self.orders[s["orderId"]]["lastPickupAt"] for s in post["stops"] if s["orderId"] in self.orders)
-                sched = self.schedule(ref, last)
-                floor = int(ref * self.p.flu_fee * self.fee_scale)
-                sched = [{"at": s["at"], "feeCents": max(s["feeCents"], floor)} for s in sched]
-                sched = [s for i, s in enumerate(sched) if i == 0 or s["feeCents"] > sched[i - 1]["feeCents"]]
-                self.outbox.append({"type": "reprice", "gigId": gig_id, "schedule": sched})
-                self.stats["flu_reprice"] = self.stats.get("flu_reprice", 0) + 1
 
     def add_load(self, request_id: str, outcome: Optional[bool]) -> None:
         if request_id not in self.pending:
@@ -433,8 +388,6 @@ class Dispatcher(Desk):
         if event["kind"] == "forecast":
             self.snow.append((event["from"], event["to"], set(event["placeIds"])))
         super().handle(event)
-        if event["kind"] == "gig_dropped":
-            self.note_drop(event["at"], event["gigId"])
         if self.p.offers and event["kind"] == "deadline_close":
             self.offer_order(event["orderId"])
         elif self.p.offers and event["kind"] == "offer_answered":
