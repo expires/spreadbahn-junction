@@ -1,0 +1,42 @@
+[
+ {
+  "seed": "pr-2",
+  "cut": 2880,
+  "at_cut": 632.62,
+  "base": {
+   "margin": 9522.74,
+   "onTime": 0.9358108108108109,
+   "orders": 296
+  },
+  "price +5%": {
+   "margin": 9653.27,
+   "onTime": 0.9442508710801394,
+   "orders": 287
+  },
+  "price \u22125%": {
+   "margin": 9511.44,
+   "onTime": 0.928125,
+   "orders": 320
+  },
+  "fees +10%": {
+   "margin": 9561.88,
+   "onTime": 0.944078947368421,
+   "orders": 304
+  },
+  "fees \u221210%": {
+   "margin": 9636.81,
+   "onTime": 0.9136212624584718,
+   "orders": 301
+  },
+  "\u03bb \u00d70.5 (take more risk)": {
+   "margin": 9855.51,
+   "onTime": 0.9331306990881459,
+   "orders": 329
+  },
+  "\u03bb \u00d72 (take less risk)": {
+   "margin": 9072.62,
+   "onTime": 0.9509433962264151,
+   "orders": 265
+  }
+ }
+]

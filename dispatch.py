@@ -61,6 +61,8 @@ class Policy:
     comp_hi: float = 1.60
     # Fees, as multiples of the typical fee, stepped by hours before lastPickupAt.
     fee_open: float = 0.9
+    price_mult: float = 1.0      # probe lever: scales every quoted price after optimisation
+    fee_mult: float = 1.0        # probe lever: scales every posted fee schedule
     tradein_fee: float = 1.0     # fee-estimate multiple for a trade-in (two cars, one price): realised −€18/order at 1.0
     private_fee: float = 1.0     # fee-estimate multiple when a stop is a private address (realised €10/order vs €39)
     fee_open_tiers: tuple = ()   # ((supply index at least, opening multiple), ...), highest first; () = flat fee_open
@@ -357,7 +359,7 @@ class Dispatcher(Desk):
             if best_x is not None and best_margin >= bar:
                 self.qlog.append({"rid": request["id"], "opt": o["kind"], "pl": round(pl, 4), "sl": round(sl, 4), "fee": round(fee, 2),
                                   "x": round(best_x, 3), "slack": round(slack, 1), "pressure": round(pressure, 4)})
-                prices[o["kind"]] = int(lst * best_x * 100)
+                prices[o["kind"]] = int(lst * best_x * p.price_mult * 100)
                 lr = math.log(best_x)
                 best_lr = lr if best_lr is None else min(best_lr, lr)
             else:
@@ -880,7 +882,7 @@ class Dispatcher(Desk):
                 steps.append((at, mult))
         out: list[FeeStep] = []
         for at, mult in steps:
-            fee = max(1, int(ref * mult * self.fee_scale))
+            fee = max(1, int(ref * mult * self.fee_scale * self.p.fee_mult))
             if out and fee <= out[-1]["feeCents"]:
                 continue
             out.append({"at": int(at), "feeCents": fee})
