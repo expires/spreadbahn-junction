@@ -116,6 +116,7 @@ class Policy:
     late_v9: bool = True         # P(late) from the v9 branch's archive-fitted model (74,731 orders, OOF AUC 0.79)
     late_v9_scale: float = 1.0   # calibration multiplier on it
     late_v9_extras: bool = True  # keep our day-capacity, edge-day, congestion and snow terms on top
+    late_v9_day_scale: float = 1.0    # separate weight on the day-capacity term (-1 = same as late_v9_extra_scale)
     late_v9_extra_scale: float = 0.3  # weight on those terms (their model already sees backlog and weather): +€848/wk
     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
     # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
@@ -401,9 +402,12 @@ class Dispatcher(Desk):
             if p.pair_quote and self.has_backhaul(request, o):
                 fee *= 1 - p.pair_quote
             if p.late_v9 and self.v9_model is not None:
-                extra = (self.congestion(request) + self.snow_risk(request, o["deadline"]) + self.day_risk(loads, o["deadline"] // DAY, nlegs)
+                extra = (self.congestion(request) + self.snow_risk(request, o["deadline"])
                          + self.edge_risk(o["deadline"], km)) if p.late_v9_extras else 0.0
-                pl = min(0.95, p.late_v9_scale * self.v9_p_late(request, o) + p.pl_scale * p.late_v9_extra_scale * extra + pressure)
+                day = self.day_risk(loads, o["deadline"] // DAY, nlegs) if p.late_v9_extras else 0.0
+                day_w = p.late_v9_extra_scale if p.late_v9_day_scale < 0 else p.late_v9_day_scale
+                pl = min(0.95, p.late_v9_scale * self.v9_p_late(request, o)
+                         + p.pl_scale * (p.late_v9_extra_scale * extra + day_w * day) + pressure)
             else:
                 pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base)) + pressure)
             best, best_x = -1e9, None
