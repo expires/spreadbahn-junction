@@ -9,7 +9,7 @@ from dataclasses import asdict
 sys.path.insert(0, "scripts")
 from backtest import key
 from bahn.simulation.dispatch import Policy
-LATER = {"notes_llm"}   # added after the baseline was cached; off by default
+LATER = {"notes_llm", "post_clock", "post_min_lead"}   # added after the baseline was cached; off by default
 d = {k: v for k, v in asdict(Policy()).items() if k not in LATER}
 old = "runs/bt-" + hashlib.sha1(json.dumps(d, sort_keys=True, default=str).encode()).hexdigest()[:10] + ".json"
 new = f"runs/bt-{key(Policy())}.json"
