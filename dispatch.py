@@ -61,6 +61,9 @@ class Policy:
     comp_hi: float = 1.60
     # Fees, as multiples of the typical fee, stepped by hours before lastPickupAt.
     fee_open: float = 0.9
+    tradein_fee: float = 1.0     # fee-estimate multiple for a trade-in (two cars, one price): realised −€18/order at 1.0
+    private_fee: float = 1.0     # fee-estimate multiple when a stop is a private address (realised €10/order vs €39)
+    fee_open_tiers: tuple = ()   # ((supply index at least, opening multiple), ...), highest first; () = flat fee_open
     fee_steps: tuple = ((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))
     hold_hours: float = 36.0     # post an order only this many hours before lastPickupAt
     # Cost model: expected fee ratio and P(late) as functions of slack hours at the quote.
@@ -83,6 +86,9 @@ class Policy:
     offers: bool = False
     trust_invest: float = 0.0    # weight on the value of dealer trust (level 8): 1% of expected future revenue per on-time order (0 = off)
     pair_quote: float = 0.25     # backhaul arbitrage: fee discount on a request that pairs with a held order (0 = off)
+    viewer_offers: bool = False  # before a public raise, offer the next fee privately to drivers who viewed the gig recently
+    viewer_lead: int = 40        # minutes before the raise
+    viewer_recent: int = 240     # a view counts if this recent (minutes)
     chain_offers: bool = False   # offer a nearby open gig to a driver who just finished one of ours (known to be working)
     chain_reach: int = 45        # road minutes from the drop-off to the next pickup
     chain_fee: float = 1.0       # x the gig's current app fee
@@ -168,6 +174,8 @@ class Dispatcher(Desk):
         self.dealer_seen: dict[str, int] = {}
         self.won_rev: list[float] = []  # euros of each won order, for the average
         self.gig_driver: dict[str, str] = {}
+        self.viewers: dict[str, list] = {}       # gig id -> [(minute, driver id)]
+        self.viewer_done: set = set()            # (gig id, raise minute) already offered
         self.gig_delivered: dict[str, int] = {}
         self.pend_day: dict[str, tuple[int, float]] = {}  # request id -> (deadline day, weight) of an open quote
 
@@ -331,6 +339,10 @@ class Dispatcher(Desk):
             sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"]) \
                 + self.day_risk(loads, o["deadline"] // DAY, nlegs) + self.edge_risk(o["deadline"], km)
             fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
+            if len(request["legs"]) > 1:
+                fee *= p.tradein_fee
+            if any(l["pickup"]["privateAddress"] or l["delivery"]["privateAddress"] for l in request["legs"]):
+                fee *= p.private_fee
             if p.pair_quote and self.has_backhaul(request, o):
                 fee *= 1 - p.pair_quote
             pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base)) + pressure)
@@ -434,6 +446,8 @@ class Dispatcher(Desk):
                     self.offer_order(oid)
         if event["kind"] == "gig_booked":
             self.gig_driver[event["gigId"]] = event["driverId"]
+        elif event["kind"] == "gig_viewed" and self.p.viewer_offers:
+            self.viewers.setdefault(event["gigId"], []).append((event["at"], event["driverId"]))
         if event["kind"] == "delivered":
             self.settle(event["orderId"])
             if self.p.chain_offers:
@@ -562,7 +576,7 @@ class Dispatcher(Desk):
                 a = {"experienced": o["legs"][0]["car"]["premium"], "manualLicence": False}
             audience = {k: audience[k] or a[k] for k in audience}
         ref = alpha * (self.requests[x["id"]]["referenceFeeCents"] + self.requests[y["id"]]["referenceFeeCents"])
-        sched = self.schedule(ref, min(x["lastPickupAt"], y["lastPickupAt"]))
+        sched = self.schedule(ref, min(x["lastPickupAt"], y["lastPickupAt"]), x["legs"][0]["pickup"]["placeId"])
         self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": sched})
         self.send()
         if not self.gigs_of(x["id"]):  # refused: post each alone
@@ -788,7 +802,47 @@ class Dispatcher(Desk):
     def next_timer(self) -> int:
         return min((t for t, _ in self.timers), default=10**9)
 
+    def viewer_offer_round(self) -> None:
+        """For each open gig whose next public raise is near, offer that fee to up to 3 recent viewers instead."""
+        hour = self.now % DAY // 60
+        if hour < 7 or hour >= 22:
+            return
+        roster = {d["id"]: d for d in getattr(self, "roster", []) or []}
+        live = {g for legs in self.leg_gigs.values() for g in legs.values()}
+        for g in live:
+            if g in self.booked or g not in self.posts:
+                continue
+            post = self.posts[g]
+            nxt = next((st for st in post["schedule"] if st["at"] > self.now), None)
+            if nxt is None or nxt["at"] - self.now > self.p.viewer_lead or (g, nxt["at"]) in self.viewer_done:
+                continue
+            self.viewer_done.add((g, nxt["at"]))
+            need_exp, need_man = post["audience"].get("experienced"), post["audience"].get("manualLicence")
+            asked = self.offered.setdefault(g, set())
+            seen = []
+            for at, d in reversed(self.viewers.get(g, [])):
+                if at < self.now - self.p.viewer_recent or d in asked or d in seen:
+                    continue
+                prof = roster.get(d)
+                if prof is None or (need_man and prof["licence"] != "manual") or (need_exp and (prof["rating"] < 4.8 or prof["completedGigs"] < 50)):
+                    continue
+                if self.offers_today.get((d, self.now // DAY), 0) >= 3:
+                    continue
+                seen.append(d)
+            for d in seen[:max(0, 3 - self.open_offers.get(g, 0))]:
+                self.outbox.append({"type": "offer", "gigId": g, "driverId": d, "feeCents": nxt["feeCents"]})
+                asked.add(d)
+                self.offers_today[(d, self.now // DAY)] = self.offers_today.get((d, self.now // DAY), 0) + 1
+                self.open_offers[g] = self.open_offers.get(g, 0) + 1
+                self.stats["viewer_offers"] = self.stats.get("viewer_offers", 0) + 1
+
+    def next_check(self) -> int:
+        """With viewer offers on, wake at least every 20 minutes in the day so raises are not missed."""
+        return self.now + 20 if self.p.viewer_offers else 10**9
+
     def fire_timers(self) -> None:
+        if self.p.viewer_offers:
+            self.viewer_offer_round()
         due = [x for x in self.timers if x[0] <= self.now]
         self.timers = [x for x in self.timers if x[0] > self.now]
         for _, oid in due:
@@ -803,10 +857,21 @@ class Dispatcher(Desk):
             return steep(self.now, ref, self.level)
         if self.level == 1:  # one fee per gig at level 1
             return [{"at": self.now, "feeCents": max(1, int(ref * 1.05 * self.fee_scale))}]
-        return self.schedule(ref, order["lastPickupAt"])
+        return self.schedule(ref, order["lastPickupAt"], order["legs"][0]["pickup"]["placeId"])
 
-    def schedule(self, ref: float, last: int) -> list[FeeStep]:
-        steps = [(self.now, self.p.fee_open)]
+    def opening(self, pickup: Optional[str]) -> float:
+        """Opening fee multiple by driver supply around the pickup: 86% of booked gigs book at the opening fee,
+        in 3 minutes where drivers are plentiful, so there it can open lower."""
+        if not self.p.fee_open_tiers or pickup is None:
+            return self.p.fee_open
+        s = self.supply.get(pickup, 0.0)
+        for threshold, mult in self.p.fee_open_tiers:  # (supply index at least, opening multiple), highest first
+            if s >= threshold:
+                return mult
+        return self.p.fee_open
+
+    def schedule(self, ref: float, last: int, pickup: Optional[str] = None) -> list[FeeStep]:
+        steps = [(self.now, self.opening(pickup))]
         for hours_before, mult in self.p.fee_steps:
             at = last - hours_before * HOUR
             if at <= self.now:
@@ -832,7 +897,7 @@ def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[
         desk.init_supply(world.roster())
     while desk.now < ends:
         actions, desk.outbox = desk.outbox, []
-        step = world.advance(until=WAKE_ON + ["order_lost", "offer_answered"] + (["delivered"] if desk.p.chain_offers else []), max=min(ends, (desk.now // DAY + 1) * DAY, max(desk.now + 1, desk.next_timer())), actions=actions)
+        step = world.advance(until=WAKE_ON + ["order_lost", "offer_answered"] + (["delivered"] if desk.p.chain_offers else []), max=min(ends, (desk.now // DAY + 1) * DAY, max(desk.now + 1, min(desk.next_timer(), desk.next_check()))), actions=actions)
         desk.read_results(actions, step["results"])
         desk.now = step["now"]
         for event in step["events"]:
