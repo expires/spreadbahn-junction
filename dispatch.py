@@ -61,6 +61,11 @@ class Policy:
     comp_hi: float = 1.60
     # Fees, as multiples of the typical fee, stepped by hours before lastPickupAt.
     fee_open: float = 0.9
+    # Dynamic hedge on the 90% rule: spend the lateness budget only while the live projection says it is spare.
+    hedge: bool = False
+    hedge_below: float = 0.035   # aggressive while projected late share is below this (the rule allows 0.10)
+    hedge_fee: float = 0.9       # fee multiple while aggressive
+    hedge_lambda: float = 40.0   # late-order shadow price while aggressive
     price_mult: float = 1.0      # probe lever: scales every quoted price after optimisation
     fee_mult: float = 1.0        # probe lever: scales every posted fee schedule
     tradein_fee: float = 1.0     # fee-estimate multiple for a trade-in (two cars, one price): realised −€18/order at 1.0
@@ -182,6 +187,15 @@ class Dispatcher(Desk):
         self.pend_day: dict[str, tuple[int, float]] = {}  # request id -> (deadline day, weight) of an open quote
 
     # ---------- the SLA controller ----------
+    def aggressive(self) -> bool:
+        """The hedge: True while the projected late share leaves plenty of room under the 10% allowance."""
+        if not self.p.hedge:
+            return False
+        projected = self.sla_pressure() + (1 - self.p.sla_target)
+        on = projected < self.p.hedge_below
+        self.stats["hedge_on" if on else "hedge_off"] = self.stats.get("hedge_on" if on else "hedge_off", 0) + 1
+        return on
+
     def sla_pressure(self) -> float:
         """Projected late share minus the allowance, from orders delivered late and orders now at risk."""
         n = max(len(self.orders), self.p.sla_prior_n)
@@ -298,7 +312,8 @@ class Dispatcher(Desk):
         sl = self.supply_late(request) + self.congestion(request)
         fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
         pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base)) + pressure)
-        margin = lst * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
+        lam = p.hedge_lambda if self.aggressive() else p.late_shadow
+        margin = lst * (1 - pl * p.late_cost) - fee - pl * lam * (1 + p.sla_gain * pressure * 10)
         if km > p.max_km or margin < p.min_margin * (1 + p.sla_gain * pressure * 10):
             self.stats["declined"] += 1
             return
@@ -314,6 +329,7 @@ class Dispatcher(Desk):
             return self.quote_fixed(request)
         p = self.p
         tv = self.trust_value(request)
+        lam = p.hedge_lambda if self.aggressive() else p.late_shadow
         ref = request["referenceFeeCents"] / 100
         km = sum(self.road.km(l["pickup"]["placeId"], l["delivery"]["placeId"]) for l in request["legs"])
         if km > p.max_km:
@@ -353,7 +369,7 @@ class Dispatcher(Desk):
                 x = 0.85 + i * 0.02  # price as x list
                 price = lst * x
                 win = 1 / (1 + math.exp(slope * (math.log(x) - math.log(comp))))
-                margin = price * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10) + tv[0] * (1 - pl) - tv[1] * pl
+                margin = price * (1 - pl * p.late_cost) - fee - pl * lam * (1 + p.sla_gain * pressure * 10) + tv[0] * (1 - pl) - tv[1] * pl
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
             if best_x is not None and best_margin >= bar:
@@ -882,7 +898,7 @@ class Dispatcher(Desk):
                 steps.append((at, mult))
         out: list[FeeStep] = []
         for at, mult in steps:
-            fee = max(1, int(ref * mult * self.fee_scale * self.p.fee_mult))
+            fee = max(1, int(ref * mult * self.fee_scale * self.p.fee_mult * (self.p.hedge_fee if self.aggressive() else 1.0)))
             if out and fee <= out[-1]["feeCents"]:
                 continue
             out.append({"at": int(at), "feeCents": fee})

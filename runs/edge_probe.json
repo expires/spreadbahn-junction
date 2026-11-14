@@ -38,5 +38,85 @@
    "onTime": 0.9509433962264151,
    "orders": 265
   }
+ },
+ {
+  "seed": "pr-3",
+  "cut": 2880,
+  "at_cut": 2993.76,
+  "base": {
+   "margin": 14401.76,
+   "onTime": 0.9696969696969697,
+   "orders": 396
+  },
+  "price +5%": {
+   "margin": 14399.69,
+   "onTime": 0.966321243523316,
+   "orders": 386
+  },
+  "price \u22125%": {
+   "margin": 14649.14,
+   "onTime": 0.9755501222493888,
+   "orders": 409
+  },
+  "fees +10%": {
+   "margin": 14009.78,
+   "onTime": 0.9849246231155779,
+   "orders": 398
+  },
+  "fees \u221210%": {
+   "margin": 15293.65,
+   "onTime": 0.9795918367346939,
+   "orders": 392
+  },
+  "\u03bb \u00d70.5 (take more risk)": {
+   "margin": 14960.69,
+   "onTime": 0.9761336515513126,
+   "orders": 419
+  },
+  "\u03bb \u00d72 (take less risk)": {
+   "margin": 14043.14,
+   "onTime": 0.9784366576819407,
+   "orders": 371
+  }
+ },
+ {
+  "seed": "pr-4",
+  "cut": 2880,
+  "at_cut": 2399.55,
+  "base": {
+   "margin": 12041.74,
+   "onTime": 0.961764705882353,
+   "orders": 340
+  },
+  "price +5%": {
+   "margin": 12263.34,
+   "onTime": 0.9535603715170279,
+   "orders": 323
+  },
+  "price \u22125%": {
+   "margin": 12775.38,
+   "onTime": 0.9606741573033708,
+   "orders": 356
+  },
+  "fees +10%": {
+   "margin": 11740.71,
+   "onTime": 0.9590643274853801,
+   "orders": 342
+  },
+  "fees \u221210%": {
+   "margin": 12708.22,
+   "onTime": 0.9478260869565217,
+   "orders": 345
+  },
+  "\u03bb \u00d70.5 (take more risk)": {
+   "margin": 12655.1,
+   "onTime": 0.9529085872576177,
+   "orders": 361
+  },
+  "\u03bb \u00d72 (take less risk)": {
+   "margin": 11998.93,
+   "onTime": 0.9473684210526315,
+   "orders": 304
+  }
  }
 ]
