@@ -71,8 +71,37 @@ def _one(seed: str, level: int, policy: D.Policy, tag: str, keep: bool) -> dict:
         import explore
         explore.save(client, world, f"{tag}-{seed}", level, [])
     score = world.score()
+    econ = {}
+    try:  # the euro decomposition: where the margin actually went
+        ledger: dict[str, int] = {}
+        counts = {"gig_booked": 0, "gig_dropped": 0, "no_show": 0, "visit_failed": 0,
+                  "order_cancelled": 0, "deadline_close": 0, "gig_expired": 0}
+        drivers: set = set()
+        for event in world.events(-1):
+            kind = event["kind"]
+            if kind == "ledger":
+                line = event["line"]
+                ledger[line["kind"]] = ledger.get(line["kind"], 0) + line["cents"]
+            elif kind in counts:
+                counts[kind] += 1
+                if kind == "gig_booked":
+                    drivers.add(event.get("driverId"))
+        positive_costs = ("revenue",)
+        items = {}
+        for kind, cents in ledger.items():
+            items[kind] = cents / 100.0 if kind in positive_costs else -cents / 100.0
+        scores = score or {}
+        won = int(scores.get("wonOrders") or 0)
+        on_time = float(scores.get("onTimeShare") or 0.0)
+        econ = {"ledger": items, **counts,
+                "drivers_booked": len(drivers),
+                "late_orders": round(won * (1.0 - on_time)) if won else 0,
+                "undelivered_orders": round(won * float(scores.get("undeliveredShare") or 0.0)) if won else 0}
+    except Exception:  # noqa: BLE001 - diagnostics must never fail a run
+        econ = {}
     return {"seed": seed, "world": world.id, "secs": round(time.time() - t0), "comp": round(math.exp(desk.log_comp), 3),
-            "pairs": desk.stats.get("pairs", 0), "singles": desk.stats.get("singles", 0), **desk.stats, **score}
+            "pairs": desk.stats.get("pairs", 0), "singles": desk.stats.get("singles", 0),
+            "econ": econ, **desk.stats, **score}
 
 
 def main() -> None:

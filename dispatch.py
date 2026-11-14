@@ -107,6 +107,16 @@ class Policy:
     # Fees, as multiples of the typical fee, stepped by hours before lastPickupAt.
     fee_open: float = 0.9        # the opening fee as a multiple of the reference fee
     fee_step_scale: float = 1.0  # scale the rising ladder multipliers (<1 books cheaper but later)
+    risk_control: float = 0.0       # 1 = safety controller: tighten quotes when the projected late share (already late +
+                                    #     unbooked-order risk) rises above risk_target; 0 = off (frozen v9)
+    risk_target: float = 0.05       # projected late share we are willing to carry (the rule allows 0.10)
+    risk_gain: float = 8.0          # how hard the margin bar and gate tighten per point of projected excess
+    risk_hard: float = 0.09         # above this projected share, same_day/next_day requests need an extra margin bar
+    risk_off_short: float = 0.0     # >0: when the realised late share exceeds this, only quote within_3_days
+                                    #     (same_day/next_day options are declined with a far-above-list price)
+    fee_open_tiers: tuple = ()      # ((supply ratio at least, opening multiple), ...) highest first; () = flat fee_open
+    private_fee_est: float = 1.0   # fee-estimate multiple when a stop is a private address (archive: 1.05 vs 0.90 x ref)
+    tradein_fee_est: float = 1.0   # fee-estimate multiple for a trade-in (archive: 1.25 vs 0.90 x ref)
     fee_steps: tuple = ((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))
     hold_hours: float = 0.0      # legacy: if > 0, hold a single order until lastPickupAt - hold_hours
     pair_enabled: float = 1.0    # 1 = pair two single-car orders into one gig when the chain works
@@ -265,6 +275,69 @@ class Dispatcher(Desk):
                 at_risk += 0.8 if o["id"] in self.urgent else 0.3 if left < 4 else 0.0
         projected = (late_now + at_risk) / n
         return projected - (1 - self.p.sla_target)
+
+    def _p_book(self, order: Order) -> float:
+        """Estimated P(this undelivered order gets delivered on time), from the booking model."""
+        if all(t is not None for t in order["deliveredAt"]):
+            return 1.0
+        gigs = self.gigs_of(order["id"])
+        if any(gig in self.booked for gig in gigs):
+            return 1.0
+        cache = getattr(self, "_pbook_cache", None)
+        if cache is None:
+            cache = self._pbook_cache = {}
+        key = order["id"]
+        stamp, value = cache.get(key, (-10**9, None))
+        if self.now - stamp < 30:  # recompute at most every 30 world minutes
+            return value if value is not None else 0.0
+        value = 0.0
+        try:
+            if self.smodels is not None and self.supply_struct is not None and supply_mod is not None:
+                horizon = max(0.25, (order["deadline"] - self.now) / HOUR)
+                action = None
+                for gig_id in gigs:
+                    action = self.posts.get(gig_id) or action
+                schedule = (action or {}).get("schedule") or []
+                legs = order["legs"]
+                p0 = legs[0]["pickup"]["placeId"]
+                d0 = legs[-1]["delivery"]["placeId"]
+                km = sum(self.road.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) for leg in legs)
+                route = sum(self.road.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) for leg in legs)
+                pickup_from = min(leg["pickup"]["window"]["from"] for leg in legs)
+                feats = supply_mod.gig_features(
+                    self.supply_struct, supply_pickup=self.supply.get(p0, 0.0), supply_delivery=self.supply.get(d0, 0.0),
+                    km=km, route_min=route, lead_h=max(0.25, (pickup_from - self.now) / HOUR), now=self.now,
+                    n_cars=len(legs), n_orders=1, ref_cents=int(self.requests.get(order["id"], {}).get("referenceFeeCents", 0)),
+                    fee_ratio=0.9)
+                value = float(self.smodels.booking.p_book(feats, schedule=schedule or None, horizon_h=horizon))
+        except Exception:  # noqa: BLE001
+            value = 0.0
+        cache[key] = (self.now, max(0.0, min(1.0, value)))
+        return cache[key][1]
+
+    def projected_late_share(self) -> float:
+        """(already late + expected late from unbooked orders) / orders won."""
+        decided = late = 0
+        expected = 0.0
+        live = 0
+        for order in self.orders.values():
+            if order["status"] == "cancelled":
+                continue
+            delivered = order["deliveredAt"]
+            done = all(t is not None for t in delivered)
+            if not done and self.now > order["deadline"]:
+                late += 1
+                decided += 1
+                continue
+            if done:
+                decided += 1
+                if any(t > order["deadline"] for t in delivered):
+                    late += 1
+                continue
+            live += 1
+            expected += 1.0 - self._p_book(order)
+        total = max(1, decided + live)
+        return (late + expected) / total
 
     def late_stats(self) -> tuple[int, int]:
         """(late, decided) over the orders we have already settled: the ranking-risk signal."""
@@ -436,6 +509,32 @@ class Dispatcher(Desk):
             return
         pressure = max(0.0, self.sla_pressure())
         bar = p.min_margin * (1 + p.sla_gain * pressure * 10)
+        risk_factor = 1.0
+        gate_eff = p.gate_pl
+        risk_hard = False
+        short_off = False
+        if p.risk_off_short > 0:
+            late_n, decided_n = self.late_stats()
+            if decided_n >= 30 and late_n / decided_n > p.risk_off_short:
+                short_off = True
+                self.stats["short_off"] = self.stats.get("short_off", 0) + 1
+        if p.risk_control:
+            try:
+                projected = self.projected_late_share()
+                excess = max(0.0, projected - p.risk_target)
+                if excess > 0:
+                    risk_factor = 1.0 + p.risk_gain * excess
+                    bar *= risk_factor
+                    if gate_eff > 0:
+                        gate_eff = gate_eff / risk_factor
+                risk_hard = projected > p.risk_hard
+                self.stats["risk_n"] = self.stats.get("risk_n", 0) + 1
+                self.stats["risk_max"] = max(self.stats.get("risk_max", 0.0), projected)
+                if excess > 0:
+                    self.stats["risk_hit"] = self.stats.get("risk_hit", 0) + 1
+            except Exception:  # noqa: BLE001 - a controller failure must not block quoting
+                risk_factor, gate_eff, risk_hard = 1.0, p.gate_pl, False
+                self.stats["risk_err"] = self.stats.get("risk_err", 0) + 1
         best_ev = -1e9
         cost_of: dict[str, tuple[float, float]] = {}  # option kind -> (expected fee EUR, p_late)
         context = None
@@ -474,12 +573,12 @@ class Dispatcher(Desk):
                     pl = float(self.late.p_late(row))
                 except Exception:  # noqa: BLE001
                     pl = pl_hand
-            gate_now = p.gate_pl * (1.0 + p.gate_dynamic * p.sla_gain * pressure * 10)
+            gate_now = gate_eff * (1.0 + p.gate_dynamic * p.sla_gain * pressure * 10)
             if p.gate_dynamic >= 2:
                 late_n, decided_n = self.late_stats()
                 if decided_n >= 20:
                     share = late_n / decided_n
-                    gate_now = p.gate_pl * (1.0 + max(0.0, share - (1.0 - p.sla_target)) * 40.0)
+                    gate_now = gate_eff * (1.0 + max(0.0, share - (1.0 - p.sla_target)) * 40.0)
             gated_late = bool(gate_now > 0 and pl > gate_now)
             if gated_late:
                 gated_any = True
@@ -492,7 +591,11 @@ class Dispatcher(Desk):
                 margin = price * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
-            gated = slack < p.min_slack_h or sl > p.supply_gate or gated_late
+            hard_extra = bool(risk_hard and o["kind"] in ("same_day", "next_day")
+                              and best_margin < bar * 1.5)
+            if short_off and o["kind"] in ("same_day", "next_day"):
+                hard_extra = True
+            gated = slack < p.min_slack_h or sl > p.supply_gate or gated_late or hard_extra
             if best_x is not None and not gated:
                 pwin_best = 1 / (1 + math.exp(p.slope * (math.log(best_x) - math.log(comp))))
                 ev = pwin_best * best_margin
@@ -602,6 +705,11 @@ class Dispatcher(Desk):
             lists[kind] = option["listPriceCents"]
             fee_hand = (ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0)
                         * (1 + p.sup_fee * max(0.0, sl - p.sup_base)) * uplift)
+            if p.private_fee_est != 1.0 and any(leg["pickup"]["privateAddress"] or leg["delivery"]["privateAddress"]
+                                                for leg in request["legs"]):
+                fee_hand *= p.private_fee_est
+            if p.tradein_fee_est != 1.0 and len(request["legs"]) > 1:
+                fee_hand *= p.tradein_fee_est
             hand = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
             pl, fee = hand, fee_hand
             if self.smodels is not None and self.supply_struct is not None and supply_mod is not None:
@@ -1200,6 +1308,20 @@ class Dispatcher(Desk):
         except Exception:  # noqa: BLE001
             return None
 
+    def _fee_open_for(self, order: Order) -> float:
+        """The opening fee multiple for this order: a supply-tier ladder when configured."""
+        if not self.p.fee_open_tiers or not self.supply:
+            return self.p.fee_open
+        try:
+            place = order["legs"][0]["pickup"]["placeId"]
+            ratio = self.supply.get(place, 0.0) / max(1e-6, self.world_mean_supply)
+            for at_least, multiple in self.p.fee_open_tiers:
+                if ratio >= at_least:
+                    return float(multiple)
+        except Exception:  # noqa: BLE001
+            pass
+        return self.p.fee_open
+
     def fees_for(self, order: Order, cars: int) -> list[FeeStep]:
         request = self.requests[order["id"]]
         ref = (request["referenceFeeCents"] * cars / len(order["legs"]) * self.note_fee_uplift(request)
@@ -1216,7 +1338,7 @@ class Dispatcher(Desk):
         if order["id"] in self.urgent:
             return steep(self.now, ref, self.level)
         last = order["lastPickupAt"]
-        steps = [(self.now, self.p.fee_open)]
+        steps = [(self.now, self._fee_open_for(order))]
         for hours_before, mult in self.p.fee_steps:
             mult = mult * self.p.fee_step_scale
             at = last - hours_before * HOUR

@@ -1,0 +1,233 @@
+{
+ "policy": {
+  "comp0": 1.37,
+  "slope": 8.7,
+  "comp_lr": 0.02,
+  "comp_lo": 1.22,
+  "comp_hi": 1.6,
+  "fee_open": 0.9,
+  "fee_step_scale": 1.0,
+  "risk_control": 0.0,
+  "risk_target": 0.05,
+  "risk_gain": 8.0,
+  "risk_hard": 0.09,
+  "fee_open_tiers": [],
+  "private_fee_est": 1.0,
+  "tradein_fee_est": 1.0,
+  "fee_steps": [
+   [
+    24,
+    1.05
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    10,
+    1.55
+   ],
+   [
+    6,
+    2.0
+   ]
+  ],
+  "hold_hours": 0.0,
+  "pair_enabled": 1.0,
+  "pair_wait": 20.0,
+  "bundle_base_ratio": 0.88,
+  "bundle_max_drive": 280.0,
+  "bundle_max_link": 35.0,
+  "bundle_min_lead_h": 3.0,
+  "bundle_max_dead_gap": 18.0,
+  "exp_fee": [
+   [
+    4,
+    2.0
+   ],
+   [
+    8,
+    1.55
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    30,
+    1.05
+   ],
+   [
+    1000000000.0,
+    0.95
+   ]
+  ],
+  "p_late": [
+   [
+    4,
+    0.6
+   ],
+   [
+    8,
+    0.3
+   ],
+   [
+    16,
+    0.12
+   ],
+   [
+    30,
+    0.06
+   ],
+   [
+    1000000000.0,
+    0.03
+   ]
+  ],
+  "late_cost": 0.45,
+  "late_shadow": 80.0,
+  "km_late": 0.0,
+  "sup_b": [
+   4.23,
+   -0.816,
+   -0.469,
+   -0.425
+  ],
+  "sup_base": 0.045,
+  "sup_fee": 0.6,
+  "max_km": 520.0,
+  "min_margin": 8.0,
+  "price_mult": 1.0,
+  "min_slack_h": 0.0,
+  "supply_gate": 2.0,
+  "rescue_h": 24.0,
+  "rescue_mult": 1.35,
+  "retry_raise": 0.0,
+  "drop_raise": 0.0,
+  "use_quote_model": 0.0,
+  "ev_bar": 0.0,
+  "select_qm": 0.0,
+  "select_net": 0.0,
+  "lane_gate": 0.0,
+  "comp_from_qm": 1.0,
+  "steer": 0.0,
+  "gate_pl": 0.3,
+  "gate_dynamic": 0.0,
+  "use_model_pl": 0.0,
+  "use_notes": 1.0,
+  "note_mode": 1.0,
+  "use_supply_model": 1.0,
+  "use_supply_fee": 0.0,
+  "use_fee_model": 0.0,
+  "fee_target": 0.85,
+  "fee_horizon": 8.0,
+  "fee_ratio_min": 0.75,
+  "fee_ratio_max": 1.6,
+  "fee_floor_target": 0.0,
+  "fee_floor_horizon": 12.0,
+  "gate_book": 0.0,
+  "offer_h": 0.0,
+  "offer_max_open": 3.0,
+  "offer_fee_ratio": 1.0,
+  "offer_radius_min": 90.0,
+  "sla_target": 0.94,
+  "sla_gain": 2.0,
+  "sla_prior_n": 120,
+  "decline_mult": 4.0
+ },
+ "results": [
+  {
+   "seed": "ev-1",
+   "world": "w3b6b9b83aa203a4a8a4d",
+   "secs": 64,
+   "comp": 1.381,
+   "pairs": 124,
+   "singles": 265,
+   "econ": {
+    "ledger": {
+     "revenue": 45713.08,
+     "driver_fee": 31199.45,
+     "late_refund": 428.71,
+     "release_fee": 58.93,
+     "failed_visit": 268.67,
+     "waiting": 90.0
+    },
+    "gig_booked": 423,
+    "gig_dropped": 62,
+    "no_show": 0,
+    "visit_failed": 10,
+    "order_cancelled": 4,
+    "deadline_close": 26,
+    "gig_expired": 11,
+    "drivers_booked": 215,
+    "late_orders": 15,
+    "undelivered_orders": 0
+   },
+   "quoted": 852,
+   "declined": 183,
+   "won": 911,
+   "lost": 691,
+   "d_km": 83,
+   "gated": 31,
+   "d_margin": 100,
+   "rebundles": 52,
+   "rescues": 115,
+   "urgent": 26,
+   "expired": 11,
+   "marginCents": 1366732,
+   "revenueCents": 4571308,
+   "marginShare": 0.29898051061096736,
+   "wonOrders": 466,
+   "onTimeShare": 0.9678111587982833,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "vb-2",
+   "world": "w2b83a846465db60abeae",
+   "secs": 66,
+   "comp": 1.553,
+   "pairs": 98,
+   "singles": 242,
+   "econ": {
+    "ledger": {
+     "revenue": 38585.81,
+     "driver_fee": 31401.48,
+     "failed_visit": 31.63,
+     "late_refund": 1034.89,
+     "release_fee": 12.7,
+     "undelivered_penalty": 157.94
+    },
+    "gig_booked": 367,
+    "gig_dropped": 68,
+    "no_show": 0,
+    "visit_failed": 1,
+    "order_cancelled": 2,
+    "deadline_close": 48,
+    "gig_expired": 20,
+    "drivers_booked": 196,
+    "late_orders": 35,
+    "undelivered_orders": 1
+   },
+   "quoted": 864,
+   "declined": 176,
+   "won": 752,
+   "lost": 787,
+   "d_km": 111,
+   "rebundles": 55,
+   "d_margin": 65,
+   "rescues": 139,
+   "gated": 18,
+   "urgent": 48,
+   "expired": 20,
+   "refused": 1,
+   "marginCents": 594717,
+   "revenueCents": 3858581,
+   "marginShare": 0.15412842182138978,
+   "wonOrders": 390,
+   "onTimeShare": 0.9102564102564102,
+   "undeliveredShare": 0.002564102564102564,
+   "ranked": true
+  }
+ ]
+}

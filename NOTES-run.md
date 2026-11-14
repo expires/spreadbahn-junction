@@ -289,3 +289,81 @@ highest-margin setting measured so far. Screen results that led here (same code)
   the two ends do not beat 0.30 on both seeds, but a full-panel test of 0.40 is the next run.
   late_shadow 40: ev-1 16,608/95.0, ev-4 21,324/94.0 (worse); price_mult 1.06: 14,482/95.3,
   21,186/96.0 (worse). Both rejected.
+
+## Round-6 diagnosis (euros, not ratios) and the first two decisive experiments
+
+Rules checked (vendor/RULES.md): score = gross margin; on-time is a PER-WEEK 90% QUALIFICATION
+threshold, not a score term. Ranking rounds need all five weeks each >= 90%. The final is one
+secret level-8 week; the 10 ranked teams with the highest margin present to the jury.
+
+Euro decomposition, same benchmark seeds, our shipped v9 world vs the best archived world on that
+seed (worlds where v9 exists): v9 mean margin 15,042 vs best-known 15,630 on those six seeds.
+  revenue/order:  v9 100.5  vs best 99.4   (v9 revenue is already better)
+  driver fee/order: v9 63.3 vs best 61.4  (v9 pays ~EUR1.9/order more -> ~EUR800/world)
+  penalties/order (refunds, undelivered, failed visits, release): v9 2.0 vs best 1.5
+  wins: ev-2 438 vs 464, ev-6 312 vs 298 (mixed)
+So the remaining gap on these seeds is mostly DRIVER FEES (+~EUR800/world) plus a small penalty
+difference; revenue per order is not the problem. (Runs/lb probes are in data/L8.)
+
+### Experiment 1 - cheaper fees ALONE vs frozen v9 (same seeds, paired)
+
+  fee_open=0.82:      ev-1 16,842/96.4 (base 17,787/96.5) -> -945 EUR, -0.1 pt
+                      ev-4 22,240/93.5 (base 23,764/96.7) -> -1,524 EUR, -3.2 pt
+  fee_open=0.82 + step_scale 0.9:
+                      ev-1 16,574/94.2 -> -1,213 EUR, -2.3 pt
+                      ev-4 22,291/93.9 -> -1,473 EUR, -2.8 pt
+REJECTED: blanket cheaper fees lose margin through later bookings/refunds; on-time falls too.
+
+### Experiment 2 - looser bundle caps ALONE (link 42 / drive 320) vs frozen v9
+
+                      ev-1 16,592/95.6 (base 17,787/96.5) -> -1,195 EUR, -0.9 pt
+                      ev-4 21,215/92.5 (base 23,764/96.7) -> -2,549 EUR, -4.2 pt
+REJECTED: looser pairings create long chains that expire; margin and punctuality both fall.
+
+Both components are negative, so the combination is not run. v9 stays the fallback.
+
+### Menu pricing (offline probe, no worlds)
+
+Fitted-menu path (_quote_model) had been silently routed into every model-loaded experiment until
+the routing bug fix; it now also takes expected fee and P(late) from the fitted supply models.
+Offline probe (probe_menu.py: stub world, real archived requests, same competitor state) shows the
+model-optimal menu has far higher modelled expected margin than the legacy menu:
+  ev-4 1036 requests: +9,512 EUR modelled EV over legacy menu
+  ev-1 1035 requests: +6,236 EUR modelled EV over legacy menu
+That is a model-internal number, not a realised margin; the live paired screen (ev-1, ev-4) is the
+test. If realised, this is the largest remaining margin lever (menu prices exploit option choice and
+the fitted P(win); legacy pricing sets one global level).
+
+### Realised driver fee vs reference fee by order type (232,276 won orders, whole archive)
+
+  private single  n=27,536   median 1.050 x ref   (p25 1.05, p75 2.00)
+  public single   n=196,129  median 0.900 x ref
+  trade-in        n=8,611    median 1.250 x ref
+  note / no note             median 0.900 both
+So the hand fee estimate (one slack-based multiplier) under-prices private addresses by ~17% and
+trade-ins by ~39% relative to public single orders; that is exactly the kind of mispricing the
+margin bar then turns into lost euros (partner found private x1.3 worth +EUR115/wk). New policy
+knobs private_fee_est / tradein_fee_est (default 1.0, test values 1.15 / 1.35) apply only to the
+fee estimate used in the quote margin; the posted fee still opens at 0.9 x ref. Screen running.
+
+### Experiment 3 - fitted-menu pricing ALONE vs frozen v9 (ev-1, ev-4)
+  ev-1 -1,103 / 81.2% (base 17,787/96.5): 44 expired gigs, 101 deadline warnings, fee/order EUR132
+  ev-4 6,382 / 81.6% (base 23,764/96.7): 76 expired gigs, 162 warnings, fee/order EUR115
+REJECTED decisively: the fitted-menu model overprices against the real driver market; the offline
+"model EV +6k/+9.5k" was model-internal and did not survive contact with the drivers. Keep
+use_quote_model=0. (Drivers soaked the price: revenue/order EUR148 vs fee/order EUR132 on ev-1.)
+
+### Experiment 1b - cheap fees ALONE, full six-seed paired panel (fee_open=0.82 vs frozen v9)
+
+  seed  v9 margin  fee82   dMargin   dOnTime   dRev/o  dFee/o  dPen/o   v9 ot   fee82 ot
+  ev-1   17,787    16,842     -944    -0.1     +0.2    +1.3    +0.2    96.5    96.4
+  ev-2   14,619    16,203   +1,584    +0.0     +2.1    -0.3    +0.6    95.0    95.0
+  ev-3   10,367    11,234     +867    -0.3     +0.8    -1.2    -0.9    97.6    97.3
+  ev-4   23,764    22,240   -1,524    -3.1     -0.9    -0.3    +1.1    96.7    93.5
+  ev-5   14,092    16,304   +2,212    +2.1     +2.8    +0.1    -0.8    94.6    96.6
+  ev-6    9,621    10,838   +1,216    +2.3     +0.2    -1.9    -1.0    95.2    97.5
+  mean  15,042    15,610     +568    +0.14    +0.9    -0.4    -0.1    95.9    96.1
+All six worlds stay above the 92% mission bar and the 90% ranking cut (worst 93.5). This is a
+mixed candidate: 4 seeds up, 2 down, and ev-4 loses 3.1 points of on-time. Per the rule "do not
+promote on an overall mean", it goes to the unseen validation panels (vb-1..6, vc-1..4) before any
+decision; v9 remains the fallback.
