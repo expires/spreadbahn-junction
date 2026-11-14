@@ -79,3 +79,79 @@ Direct offers (offer_h=8, no bundling):
 Rejoin/loop test after promotion: final.py preflight PASS on the live server (404 poll path,
 no world created). test_final_rejoin.py replays archived worlds through dispatch.py; the only
 changed expectation is the held-order-timer check (v8 has hold_hours=0 so it has no held timers).
+
+## Models actually active (bug found and fixed)
+
+Until 02:50 the fitted supply models were silently OFF: Dispatcher.__init__ referred to an undefined
+'p' inside its try blocks, so LateModel/QuoteModel/supply loading always fell into the except
+branch and self.smodels stayed None. The q6_final numbers above are therefore the hand-table
+variant (still valid as a measured config). Fixed by 'p = policy' in __init__.
+
+With the fitted P(late) active (use_supply_model=1, use_supply_fee=0 so the fee stays v7's hand
+formula), same defaults otherwise:
+
+q6_v8b (gate 0.30):  ev-1 15,756/94.3  ev-2 13,473/95.7  ev-3 9,815/97.8  ev-4 19,978/94.2
+                    ev-5 14,260/94.7  ev-6 9,056/95.6   MEAN EUR13,723  mean ot 95.4%
+q6_v8c (gate 0.15): ev-1 16,087/97.3  ev-2 13,288/95.0  ev-3 9,737/97.7  ev-4 19,038/95.4
+                    ev-5 13,745/95.6  ev-6 9,089/95.5   MEAN EUR13,497  mean ot 96.1%  worst 95.0%
+                    6/6 ranked.
+Gate 0.15 vs 0.30: -226 EUR margin for +0.7 points on time. 0.10 is worse on both for ev-1/ev-4
+(14,170/97.1 and 16,831/96.1): more gating did not buy more punctuality, so 0.15 is the knee.
+
+Feeding the fitted expected FEE into the margin (use_supply_fee=1) made the policy too
+aggressive: ev-1 13,926/93.2, ev-2 11,265/91.7, ev-4 18,700/92.9 - better only on ev-4. Off.
+
+price_mult / late_shadow on top of gate 0.15:
+  price_mult=1.04: ev-2 13,907/95.9 (+619/+0.9), ev-4 18,644/95.8 (-394/+0.4)
+  late_shadow=150: ev-2 13,256/96.0, ev-4 17,966/94.7 (worse on ev-4)
+The qm-based request-level selection bar (select_qm) is BROKEN in the tested form: with qm loaded
+for selection it declined the easy orders and kept the hard ones (ev-1 4,708/84.1, ev-4 -5,538/73.9
+with 120 expired gigs), so it stays off.
+
+## Frontier (all with gate_pl=0.15, conservative bundling, hold 0, safe notes)
+
+q6_pm4 = price_mult 1.04:            mean EUR13,513  mean ot 96.24%  min 95.4%  (ev-1 15,984/97.7)
+q6_pm8 = price_mult 1.08:            mean EUR13,368  mean ot 96.87%  min 96.0%
+q6_feem = pm 1.08 + fee model:       mean EUR12,876  mean ot 97.34%  min 95.6%
+q6_comb = pm 1.08 + fee + offers:    mean EUR12,723  mean ot 97.48%  min 96.5%
+(for reference: q6_v8c gate .15 pm 1.0 = EUR13,497 / 96.07%; q6_v8b gate .30 = EUR13,723 / 95.37%.)
+
+So the frontier is: ~EUR13.5k at 96.1-96.9% on time, or ~EUR12.7-12.9k at 97.3-97.5%. The remaining
+task is to lift margin at fixed punctuality; the levers measured so far each move one of the two.
+
+Sub-levers measured on ev-2/ev-4 (paired, all on top of gate 0.15 + pm 1.08):
+- use_fee_model (opening fee from supply.booking.fee_for_target, target .85 within 8h):
+    ev-2 14,475/96.4 -> 14,696/98.4 (+221/+2.0), ev-4 17,617/96.0 -> 17,756/96.2 (+139/+0.2).
+- tuned direct offers (offer_h 12, fee x1.15, radius 120min):
+    ev-4 17,617/96.0 -> 18,078/97.0 (+461/+1.0); ev-2 14,475/96.4 -> 14,208/96.2 (-267/-0.2).
+- looser bundle caps (link 40, drive 320): ev-4 17,737/95.9 (neutral), ev-2 13,594/96.0 (worse than 14,475).
+- price_mult 1.12: ev-4 19,322/96.5 (+1,705/+0.5) but ev-2 13,663/95.3 (-812/-1.1): the seed's
+  competitor level decides whether more price helps, so a blanket multiplier is the wrong tool.
+- comp_from_qm (use quote_model's online lane-aware threshold as v7's comp): inverted the order
+  selection (ev-1 4,708 / 84.1% / 49 expired gigs) - dead end in this form.
+- select_qm (request-level EV bar with the fitted model) was also catastrophic in both forms tried.
+
+The fee model + offers together buy ~+0.6 points of on-time for ~EUR600/week. Since the mission
+wants >97% AND EUR14k, the next real step is a better cost/selection model (see NOTES.md section 9),
+not another constant tweak.
+
+## Best combined configs (6 archived seeds, deterministic)
+
+q6_pm4fee = gate_pl 0.15 + price_mult 1.04 + use_fee_model 1 (no offers):
+  ev-1 14,902/96.6  ev-2 14,956/97.8  ev-3 8,640/97.8  ev-4 18,663/97.2
+  ev-5 14,524/97.6  ev-6 9,058/97.8
+  MEAN EUR13,457  mean on-time 97.48%  worst 96.6%  ranked 6/6  <- first config over 97%
+
+Gate 0.20 vs 0.15 on top of that (single seeds): ev-1 15,378/96.3 (+476/-0.3),
+ev-4 19,081/95.3 (+418/-1.9); price_mult 1.06 on ev-4 15,774/93.1 (chaotic regression vs
+18,663/97.2 at 1.04) - the win/trust/learning path is sensitive at these price levels, which is
+why each candidate is re-run over all six seeds before it is believed.
+
+q6_ship1 = gate 0.20 + pm 1.04 + fee model: mean EUR12,921 / 96.07% / min 95.2 - worse than
+q6_pm4fee on BOTH axes (chaotic sensitivity on ev-2/ev-5/ev-6), so the shipped default is:
+
+    gate_pl=0.15  price_mult=1.04  use_fee_model=1  + the rest of the v8 defaults
+    (post at the win, conservative two-car bundling, safe note mode, supply P(late), no offers)
+
+    six archived seeds:  mean EUR13,457/week   mean on-time 97.48%  worst 96.6%  ranked 6/6
+    v7-lam50 reference:  mean EUR11,275/week   mean on-time 92.4%

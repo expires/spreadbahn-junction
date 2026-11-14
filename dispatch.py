@@ -118,7 +118,7 @@ class Policy:
     max_km: float = 520.0        # decline longer lanes
     min_margin: float = 8.0      # euros of expected margin to quote an option at all
     # v8 experiment hooks (A/B sweeps): price multiplier, hard gates.
-    price_mult: float = 1.0      # scale every quoted price by this (selectivity lever)
+    price_mult: float = 1.04     # scale every quoted price by this (selectivity lever)
     min_slack_h: float = 0.0     # decline an option whose slack to the deadline is below this
     supply_gate: float = 2.0     # decline an option whose supply-model P(late) exceeds this (2 = off)
     # SLA controller.
@@ -128,12 +128,22 @@ class Policy:
     drop_raise: float = 0.0       # reprice an unbooked gig at once when a driver drops it (0 = wait for the ladder)
     use_quote_model: float = 0.0  # 1 = use the fitted competitor/P(win) model when available
     ev_bar: float = 0.0           # legacy pricing: decline a request whose best expected value (EUR) is below this
+    select_qm: float = 0.0        # legacy pricing: decline a request whose menu EV under the fitted model is below this EUR
+    lane_gate: float = 0.0        # decline requests whose persistent competitor lane factor is below -this (log)
+    comp_from_qm: float = 0.0     # 1 = take the competitor threshold from quote_model's online filter (lane-aware)
+                                  #     instead of v7's single global SGD comp
     steer: float = 0.0            # legacy pricing: raise same_day by this share when a slower option is offered
-    gate_pl: float = 0.30         # decline an option whose fitted P(late) exceeds this (0 = off)
+    gate_pl: float = 0.15         # decline an option whose fitted P(late) exceeds this (0 = off)
     use_model_pl: float = 0.0     # 1 = late_model.LateModel for P(late), 0 = v7's hand-set table
     use_notes: float = 1.0        # 1 = read dealer notes for windows/audience/fees, 0 = kit starter behaviour
     note_mode: float = 1.0        # 1 = safe use (audience + pickup floor only), 2 = also delivery ceilings and opening hours
-    use_supply_model: float = 1.0  # 1 = supply.py P(late) + expected driver fee in the quote margin
+    use_supply_model: float = 1.0  # 1 = supply.py P(late) in the quote margin and gate (see use_supply_fee)
+    use_supply_fee: float = 0.0   # 1 = also use the fitted expected driver fee; 0 = keep v7's hand fee formula
+    use_fee_model: float = 1.0    # 1 = set the opening fee from supply.booking.fee_for_target instead of 0.9 x ref
+    fee_target: float = 0.85      # target P(booked within fee_horizon) for the fee model
+    fee_horizon: float = 8.0
+    fee_ratio_min: float = 0.75   # clamp the model's fee ratio to [min, max]
+    fee_ratio_max: float = 1.60
     gate_book: float = 0.0        # decline an option whose fitted P(booked within 8h) is below this (0 = off)
     offer_h: float = 0.0          # direct offers: start offering an unbooked gig this many hours before its last pickup (0 = off)
     offer_max_open: float = 3.0   # open direct offers per gig (rules allow 3)
@@ -167,6 +177,7 @@ class Dispatcher(Desk):
     def __init__(self, world, level, now, policy: Policy, road: Road):
         super().__init__(world, level, now)
         self.supply: dict[str, float] = {}
+        p = policy
         self.p, self.road = policy, road
         self.log_comp = math.log(policy.comp0)
         self.day_of_comp = now // DAY
@@ -196,7 +207,7 @@ class Dispatcher(Desk):
         self.qm = None
         self.oc = None
         try:
-            if QuoteModel is not None and p.use_quote_model:
+            if QuoteModel is not None and (p.use_quote_model or p.select_qm > 0 or p.lane_gate > 0 or p.comp_from_qm > 0):
                 self.qm = QuoteModel.load()
                 self.oc = OnlineCompetitor(self.qm)
         except Exception:  # noqa: BLE001 - a missing/unreadable fit falls back to the v7 SGD
@@ -368,6 +379,17 @@ class Dispatcher(Desk):
         p = self.p
         ref = request["referenceFeeCents"] / 100
         km = sum(self.road.km(l["pickup"]["placeId"], l["delivery"]["placeId"]) for l in request["legs"])
+        if p.lane_gate > 0 and self.qm is not None:
+            try:
+                lane = self.qm.context(request, self.road)["lane_log_factor"]
+                if lane < -p.lane_gate:
+                    self.stats["declined"] += 1
+                    self.stats["d_lane"] = self.stats.get("d_lane", 0) + 1
+                    self.outbox.append({"type": "quote", "requestId": request["id"],
+                                        "prices": {o["kind"]: int(o["listPriceCents"] * p.decline_mult) for o in request["options"]}})
+                    return
+            except Exception:  # noqa: BLE001
+                pass
         if km > p.max_km:
             self.stats["declined"] += 1
             self.stats["d_km"] = self.stats.get("d_km", 0) + 1
@@ -377,8 +399,18 @@ class Dispatcher(Desk):
         pressure = max(0.0, self.sla_pressure())
         bar = p.min_margin * (1 + p.sla_gain * pressure * 10)
         best_ev = -1e9
+        cost_of: dict[str, tuple[float, float]] = {}  # option kind -> (expected fee EUR, p_late)
+        context = None
         boost = 1 + 0.01 * self.trust.get(request["dealerId"], 0) if self.level >= 8 else 1.0
         comp = math.exp(self.log_comp) * boost
+        context = None
+        if p.comp_from_qm and self.oc is not None and self.qm is not None:
+            try:
+                context = self.qm.context(request, self.road)
+                trust = self.trust.get(request["dealerId"], 0)
+                comp = math.exp(self.oc.log_comp_for(context, trust) + self.qm.A_value(context, len(request["options"])))
+            except Exception:  # noqa: BLE001
+                comp = math.exp(self.log_comp) * boost
         prices: dict[str, int] = {}
         best_lr = None
         gated_any = False
@@ -394,7 +426,9 @@ class Dispatcher(Desk):
             terms = (self._supply_terms(request, o, deadline_eff)
                      if (self.p.use_supply_model and self.smodels is not None) else None)
             if terms is not None:
-                pl, fee = terms  # fitted P(late) and expected driver fee from supply.py
+                pl = terms[0]  # fitted P(late)
+                if self.p.use_supply_fee:
+                    fee = terms[1]  # fitted expected driver fee
             elif self.late is not None and self.supply:
                 try:
                     adjusted = {"kind": o["kind"], "deadline": deadline_eff, "listPriceCents": o["listPriceCents"]}
@@ -405,6 +439,7 @@ class Dispatcher(Desk):
             gated_late = bool(p.gate_pl > 0 and pl > p.gate_pl)
             if gated_late:
                 gated_any = True
+            cost_of[o["kind"]] = (fee, pl)
             best, best_x = -1e9, None
             for i in range(60):
                 x = 0.85 + i * 0.02  # price as x list
@@ -425,6 +460,33 @@ class Dispatcher(Desk):
                 best_lr = lr if best_lr is None else min(best_lr, lr)
             else:
                 prices[o["kind"]] = int(o["listPriceCents"] * p.decline_mult)
+        if p.select_qm > 0 and self.oc is not None and self.qm is not None:
+            try:
+                if context is None:
+                    context = self.qm.context(request, self.road)
+                genuine = {o["kind"]: prices[o["kind"]] for o in request["options"]
+                           if prices.get(o["kind"], 0) < 3 * o["listPriceCents"]}
+                if genuine:
+                    takes = self.oc.p_take(context, genuine, self.trust.get(request["dealerId"], 0))
+                    expected = 0.0
+                    for kind, probability in takes.items():
+                        fee, pl = cost_of.get(kind, (0.0, 0.05))
+                        price = genuine[kind] / 100.0
+                        expected += probability * (price - fee - pl * (p.late_cost * price + p.late_shadow))
+                    if expected < p.select_qm:
+                        self.stats["declined"] += 1
+                        self.stats["d_sel"] = self.stats.get("d_sel", 0) + 1
+                        self.outbox.append({"type": "quote", "requestId": request["id"],
+                                            "prices": {o["kind"]: int(o["listPriceCents"] * p.decline_mult) for o in request["options"]}})
+                        return
+                    self.quoted_model[request["id"]] = (context, genuine, self.trust.get(request["dealerId"], 0))
+            except Exception:  # noqa: BLE001
+                pass
+        if p.comp_from_qm and self.oc is not None and context is not None:
+            genuine = {o["kind"]: prices[o["kind"]] for o in request["options"]
+                       if prices.get(o["kind"], 0) < 3 * o["listPriceCents"]}
+            if genuine:
+                self.quoted_model[request["id"]] = (context, genuine, self.trust.get(request["dealerId"], 0))
         if p.ev_bar > 0 and best_ev < p.ev_bar:
             self.stats["declined"] += 1
             self.stats["d_ev"] = self.stats.get("d_ev", 0) + 1
@@ -551,11 +613,15 @@ class Dispatcher(Desk):
                 ctx, prices, trust = saved
                 try:
                     self.oc.observe(ctx, prices, won, self.now, trust)
-                    self.log_comp = self.oc.log_level + self.oc.day_mu
                 except Exception:  # noqa: BLE001
                     pass
                 self.stats["won" if won else "lost"] = self.stats.get("won" if won else "lost", 0) + 1
-                return
+                if self.p.use_quote_model:
+                    try:
+                        self.log_comp = self.oc.log_level + self.oc.day_mu
+                    except Exception:  # noqa: BLE001
+                        pass
+                    return
         if request_id not in self.quoted:
             return
         lr, _ = self.quoted.pop(request_id)
@@ -981,6 +1047,11 @@ class Dispatcher(Desk):
         last = min(first["lastPickupAt"], second["lastPickupAt"])
         base = bundle_base_fee(ra, rb, self.p.bundle_base_ratio)
         base *= 1.0 + self.p.retry_raise * max(self.attempts.get(first["id"], 0), self.attempts.get(second["id"], 0))
+        model_ratio = self._booking_ratio(first, 2, first, second,
+                                          chain_min=self.road.minutes(first["legs"][-1]["delivery"]["placeId"],
+                                                                     second["legs"][0]["pickup"]["placeId"]))
+        if model_ratio is not None:
+            base = (ra["referenceFeeCents"] + rb["referenceFeeCents"]) * model_ratio / max(1e-6, self.p.fee_open)
         return bundle_schedule(self.now, last, base, self.p.fee_open, tuple(self.p.fee_steps))
 
     def _post_bundle(self, got: dict, ra: dict, rb: dict) -> None:
@@ -1011,10 +1082,42 @@ class Dispatcher(Desk):
                         break
 
     # ---------- fees ----------
+    def _booking_ratio(self, order: Order, cars: int, first: Order = None, second: Order = None, chain_min: float = 0.0) -> Optional[float]:
+        """The fee ratio (opening fee / sum of reference fees) the booking model says books the gig."""
+        if not self.p.use_fee_model or self.smodels is None or self.supply_struct is None or supply_mod is None:
+            return None
+        try:
+            legs = order["legs"]
+            p0 = legs[0]["pickup"]["placeId"]
+            d0 = legs[-1]["delivery"]["placeId"]
+            km = sum(self.road.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) for leg in legs)
+            route_min = sum(self.road.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) for leg in legs)
+            if second is not None:
+                route_min += self.road.minutes(first["legs"][-1]["delivery"]["placeId"], second["legs"][0]["pickup"]["placeId"])
+                km += self.road.km(first["legs"][-1]["delivery"]["placeId"], second["legs"][0]["pickup"]["placeId"])
+            pickup_from = min(leg["pickup"]["window"]["from"] for leg in legs)
+            ref_cents = int(sum(self.requests[o["id"]]["referenceFeeCents"] for o in ((first, second) if second is not None else (order,))))
+            n_orders = 2 if second is not None else 1
+            features = supply_mod.gig_features(
+                self.supply_struct,
+                supply_pickup=self.supply.get(p0, 0.0), supply_delivery=self.supply.get(d0, 0.0),
+                km=km, route_min=route_min, lead_h=(pickup_from - self.now) / HOUR, now=self.now,
+                n_cars=cars, n_orders=n_orders, chain_min=chain_min,
+                ref_cents=ref_cents, fee_ratio=0.9)
+            ratio = float(self.smodels.booking.fee_for_target(features, target=self.p.fee_target, horizon_h=self.p.fee_horizon))
+            if not (0.2 <= ratio <= 3.0):
+                return None
+            return max(self.p.fee_ratio_min, min(self.p.fee_ratio_max, ratio))
+        except Exception:  # noqa: BLE001
+            return None
+
     def fees_for(self, order: Order, cars: int) -> list[FeeStep]:
         request = self.requests[order["id"]]
         ref = (request["referenceFeeCents"] * cars / len(order["legs"]) * self.note_fee_uplift(request)
                * (1.0 + self.p.retry_raise * self.attempts.get(order["id"], 0)))
+        model_ratio = self._booking_ratio(order, cars)
+        if model_ratio is not None:
+            ref = ref * model_ratio / max(1e-6, self.p.fee_open)
         if order["id"] in self.urgent:
             return steep(self.now, ref, self.level)
         last = order["lastPickupAt"]
