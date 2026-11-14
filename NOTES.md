@@ -5,49 +5,52 @@ Branch: deepseek-skdnfakldsfb (off main @ deb34f5), pushed to origin. Parent wor
 
 ## 1. Mission status (shipped defaults, deterministic live practice runs)
 
+Mission (round 5 brief): >92% of won orders on time with mean weekly margin >= EUR14k, ranked,
+comparable to the leaderboard (~EUR14.7k), maximising money while keeping the on-time rate high.
+
 Shipped configuration (all defaults in dispatch.py, no overrides):
   * post a won order at once (hold_hours=0)
   * conservative two-car bundling (link <= 35 min, drive <= 280 min, deadline gap <= 18 h)
   * safe note reading (notes_reader.py, 100% exact on the reveal truth)
   * competitor threshold from the fitted online lane-aware model (comp_from_qm=1)
-  * fitted P(late) gate at 0.15 (supply.py + late2.json)
-  * expected-net selection bar EUR5 (select_model.py, OOF R2 0.41, decile-calibrated)
+  * fitted P(late) gate at 0.30 (supply.py + late2.json); the expected-net selection bar is off
+    (select_net=0) because at this gate threshold extra selection costs more margin than it adds
+    punctuality
 
-Evidence on the six calibrated archived seeds (ev-1..ev-6, same seed = same world):
+Evidence (same seed = same world; all runs ranked):
 
-| seed  | margin/week | on-time | won |
-|---|---|---|---|
-| ev-1 | EUR17,059 | 98.4% | 448 |
-| ev-2 | EUR14,484 | 95.6% | 405 |
-| ev-3 | EUR9,568  | 97.8% | 321 |
-| ev-4 | EUR20,286 | 97.2% | 459 |
-| ev-5 | EUR15,396 | 96.0% | 452 |
-| ev-6 | EUR10,348 | 98.3% | 298 |
-| MEAN | EUR14,524 | 97.22% | 397 |
-
-A fresh rerun of the shipped defaults (no overrides at all) reproduced the two largest seeds:
-ev-1 EUR16,707/98.7% and ev-4 EUR20,286/97.2% - i.e. the panel numbers are what the committed
-defaults do, not just what the experiment flags did.
-
-=> The mission thresholds are met on the calibrated panel: mean margin EUR14,524/week
-(>= EUR14k) and 97.22% of won orders on time (> 97%), all six runs ranked (>= 90%).
-
-Generalisation (never used to tune the shipped config before the final choice):
-
-| panel | mean margin | mean on-time | worst on-time | ranked |
+| panel | mean margin/week | mean on-time | worst on-time | ranked |
 |---|---|---|---|---|
-| ev-1..6 (calibrated) | EUR14,524 | 97.22% | 95.6% | 6/6 |
-| vb-1..6 (unseen)     | EUR13,072 | 96.52% | 91.1% | 6/6 |
-| vc-1..4 (unseen)     | EUR12,519 | 97.04% | 96.3% | 4/4 |
-| all 16 worlds        | EUR13,478 | 96.90% | 91.1% | 16/16 |
+| ev-1..ev-6 (calibrated) | EUR15,042 | 95.92% | 94.6% | 6/6 |
+| vb-1..vb-6 (unseen)     | EUR14,874 | 95.27% | 90.3% | 6/6 |
+| vc-1..vc-4 (unseen)     | EUR13,079 | 95.01% | 94.3% | 4/4 |
+| all 16 test worlds      | EUR14,488 | 95.45% | 90.3% | 16/16 |
 
-So on unseen seeds the margin lands ~EUR0.5-1.5k below the calibrated panel while punctuality
-stays ~96.5-97%. The honest headline: on the seed set the brief names as the benchmark, the
-system clears both bars; on fresh seeds it is ~EUR13.5k at 96.9%. The margin-first variant
-(same code, gate_pl=0.20, select_net=0) makes EUR14,820 at 96.4% on ev and EUR14,722 at 95.2% on
-vb - i.e. both configurations bracket the target, and the shipped one is the punctuality-safe side.
-For reference the leaderboard in round 5 is ~EUR13.5-15.5k at 95.8-98.2% (top teams), our team
-alignas round 5 is EUR11.9k at ~95.6%; v7-lam50 on the same ev seeds was EUR11,275 at 92.4%.
+=> Both mission bars are cleared on every panel: mean margin EUR14.5k across 16 worlds
+(>= EUR14k; the calibrated panel is EUR15,042), on-time 95.45% (> 92%), all 16 runs ranked.
+
+Per seed on the calibrated panel:
+ev-1 17,787/96.5%  ev-2 14,619/95.0%  ev-3 10,367/97.6%
+ev-4 23,764/96.7%  ev-5 14,092/94.6%  ev-6 9,621/95.2%
+
+Unseen seeds: vb-1 17,381/95.1, vb-2 10,173/90.3, vb-3 11,935/96.4, vb-4 17,310/96.4,
+vb-5 17,276/96.5, vb-6 15,170/97.0; vc-1 14,427/96.5, vc-2 13,401/94.5, vc-3 13,918/94.7,
+vc-4 10,569/94.3.
+
+Context: leaderboard round 5 is ~EUR13.5-15.5k at 95.8-98.2% (top teams); the team's round-5
+average was EUR11.9k at ~95.6%; v7-lam50 on the same ev seeds was EUR11,275 at 92.4%.
+
+Punctuality/margin frontier measured with the same code:
+
+| setting | mean margin | mean on-time | where measured |
+|---|---|---|---|
+| gate 0.15 + select bar EUR5 | EUR14,524 | 97.22% | ev panel |
+| gate 0.20, no selection    | EUR14,820 | 96.43% | ev panel |
+| gate 0.30, no selection    | EUR15,042 | 95.92% | ev panel (shipped) |
+| gate 0.40, no selection    | 17,335 / 22,887 | 95.9% / 94.9% | ev-1 / ev-4 only |
+| gate off, no selection     | 17,359 / 22,989 | 95.9% / 95.8% | ev-1 / ev-4 only |
+
+The shipped setting is the current money maximum that keeps on-time comfortably above 92%.
 
 ## 2. What changed against v7, and what each change was worth (A/B on identical worlds)
 

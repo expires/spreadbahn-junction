@@ -18,17 +18,19 @@ Shipped configuration and why (numbers in NOTES.md / NOTES-run.md):
     persistent lane factors and dealer trust enter every price. Worth +~1.1k/week at equal
     punctuality - the largest remaining margin lever.
   * fitted P(late) (supply.py features refit by fit_late2.py, OOF AUC 0.789) drives the quote
-    margin and the gate: an option with P(late) > 0.15 is declined.
-  * expected-net selection bar (select_model.py, OOF R2 0.41, decile calibrated): decline a
-    request whose menu expected net (sum p_take x expected net) is below EUR5. Together with the
-    0.15 gate this moved the calibrated seeds from 14.8k/96.4% to 14.5k/97.2% (both targets).
+    margin and the gate: an option with P(late) > 0.30 is declined (margin-first setting; 0.15 is
+    the punctuality-safe side of the measured frontier).
+  * expected-net selection bar (select_model.py, OOF R2 0.41, decile calibrated) is implemented
+    and wired (select_net); it is OFF in the shipped defaults because at gate 0.30 additional
+    selection costs more margin than it adds punctuality. With gate 0.15 it buys +0.8 points for
+    EUR300/week, which is the setting to use if the on-time bar tightens.
   * off after A/B: fitted booking-model fee (hurt unseen seeds), direct offers (neutral), rescue
     repricing and failure fee inflation (lost more margin than they saved), price multiplier
     (chaotic), dynamic gate, full menu optimiser (use_quote_model 0).
 
-Measured with these defaults on the six archived seeds: mean EUR14,524/week, 97.22% on time,
-worst 95.6%, all ranked (v7-lam50: EUR11,275 / 92.4%). Unseen-seed panels: vb-1..6 EUR13,072 /
-96.52%, vc-1..4 EUR12,519 / 97.04%.
+Measured with these defaults: ev-1..6 mean EUR15,042/week at 95.92% on time (worst 94.6%),
+vb-1..6 EUR14,874 at 95.27%, vc-1..4 EUR13,079 at 95.01% - all 16 worlds ranked, 16/16 above the
+90% ranking cut. v7-lam50 on the same ev seeds was EUR11,275 at 92.4%.
 """
 from __future__ import annotations
 
@@ -138,12 +140,12 @@ class Policy:
     use_quote_model: float = 0.0  # 1 = use the fitted competitor/P(win) model when available
     ev_bar: float = 0.0           # legacy pricing: decline a request whose best expected value (EUR) is below this
     select_qm: float = 0.0        # legacy pricing: decline a request whose menu EV under the fitted model is below this EUR
-    select_net: float = 5.0       # decline a request whose expected net (fitted per-order net model) is below this EUR
+    select_net: float = 0.0       # decline a request whose expected net (fitted per-order net model) is below this EUR
     lane_gate: float = 0.0        # decline requests whose persistent competitor lane factor is below -this (log)
     comp_from_qm: float = 1.0     # 1 = take the competitor threshold from quote_model's online filter (lane-aware)
                                   #     instead of v7's single global SGD comp
     steer: float = 0.0            # legacy pricing: raise same_day by this share when a slower option is offered
-    gate_pl: float = 0.15         # decline an option whose fitted P(late) exceeds this (0 = off)
+    gate_pl: float = 0.30         # decline an option whose fitted P(late) exceeds this (0 = off)
     gate_dynamic: float = 0.0     # 1 = tighten gate with SLA pressure, 2 = with the raw share of decided orders that were late
     use_model_pl: float = 0.0     # 1 = late_model.LateModel for P(late), 0 = v7's hand-set table
     use_notes: float = 1.0        # 1 = read dealer notes for windows/audience/fees, 0 = kit starter behaviour

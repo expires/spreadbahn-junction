@@ -1,0 +1,233 @@
+{
+ "policy": {
+  "comp0": 1.37,
+  "slope": 8.7,
+  "comp_lr": 0.02,
+  "comp_lo": 1.22,
+  "comp_hi": 1.6,
+  "fee_open": 0.9,
+  "fee_steps": [
+   [
+    24,
+    1.05
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    10,
+    1.55
+   ],
+   [
+    6,
+    2.0
+   ]
+  ],
+  "hold_hours": 0.0,
+  "pair_enabled": 1.0,
+  "pair_wait": 20.0,
+  "bundle_base_ratio": 0.88,
+  "bundle_max_drive": 280.0,
+  "bundle_max_link": 35.0,
+  "bundle_min_lead_h": 3.0,
+  "bundle_max_dead_gap": 18.0,
+  "exp_fee": [
+   [
+    4,
+    2.0
+   ],
+   [
+    8,
+    1.55
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    30,
+    1.05
+   ],
+   [
+    1000000000.0,
+    0.95
+   ]
+  ],
+  "p_late": [
+   [
+    4,
+    0.6
+   ],
+   [
+    8,
+    0.3
+   ],
+   [
+    16,
+    0.12
+   ],
+   [
+    30,
+    0.06
+   ],
+   [
+    1000000000.0,
+    0.03
+   ]
+  ],
+  "late_cost": 0.45,
+  "late_shadow": 80.0,
+  "km_late": 0.0,
+  "sup_b": [
+   4.23,
+   -0.816,
+   -0.469,
+   -0.425
+  ],
+  "sup_base": 0.045,
+  "sup_fee": 0.6,
+  "max_km": 520.0,
+  "min_margin": 8.0,
+  "price_mult": 1.0,
+  "min_slack_h": 0.0,
+  "supply_gate": 2.0,
+  "rescue_h": 0.0,
+  "rescue_mult": 1.35,
+  "retry_raise": 0.0,
+  "drop_raise": 0.0,
+  "use_quote_model": 0.0,
+  "ev_bar": 0.0,
+  "select_qm": 0.0,
+  "select_net": 0.0,
+  "lane_gate": 0.0,
+  "comp_from_qm": 1.0,
+  "steer": 0.0,
+  "gate_pl": 0.3,
+  "gate_dynamic": 0.0,
+  "use_model_pl": 0.0,
+  "use_notes": 1.0,
+  "note_mode": 1.0,
+  "use_supply_model": 1.0,
+  "use_supply_fee": 0.0,
+  "use_fee_model": 0.0,
+  "fee_target": 0.85,
+  "fee_horizon": 8.0,
+  "fee_ratio_min": 0.75,
+  "fee_ratio_max": 1.6,
+  "fee_floor_target": 0.0,
+  "fee_floor_horizon": 12.0,
+  "gate_book": 0.0,
+  "offer_h": 0.0,
+  "offer_max_open": 3.0,
+  "offer_fee_ratio": 1.0,
+  "offer_radius_min": 90.0,
+  "sla_target": 0.94,
+  "sla_gain": 2.0,
+  "sla_prior_n": 120,
+  "decline_mult": 4.0
+ },
+ "results": [
+  {
+   "seed": "vc-1",
+   "world": "w5e14e3bf42719abea16e",
+   "secs": 52,
+   "comp": 1.357,
+   "pairs": 93,
+   "singles": 242,
+   "quoted": 840,
+   "declined": 198,
+   "won": 767,
+   "lost": 800,
+   "d_km": 111,
+   "d_margin": 87,
+   "rebundles": 40,
+   "gated": 30,
+   "urgent": 10,
+   "expired": 6,
+   "refused": 1,
+   "marginCents": 1442685,
+   "revenueCents": 3856162,
+   "marginShare": 0.37412458294023954,
+   "wonOrders": 398,
+   "onTimeShare": 0.964824120603015,
+   "undeliveredShare": 0.002512562814070352,
+   "ranked": true
+  },
+  {
+   "seed": "vc-2",
+   "world": "w312b0da84cdaa95f4504",
+   "secs": 54,
+   "comp": 1.525,
+   "pairs": 107,
+   "singles": 284,
+   "quoted": 879,
+   "declined": 159,
+   "won": 879,
+   "lost": 727,
+   "d_km": 92,
+   "d_margin": 67,
+   "rebundles": 49,
+   "gated": 15,
+   "urgent": 34,
+   "expired": 20,
+   "marginCents": 1340124,
+   "revenueCents": 4538830,
+   "marginShare": 0.2952575884093478,
+   "wonOrders": 457,
+   "onTimeShare": 0.9452954048140044,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "vc-3",
+   "world": "wda8bcf5a4764648f7b3a",
+   "secs": 63,
+   "comp": 1.47,
+   "pairs": 90,
+   "singles": 277,
+   "quoted": 822,
+   "declined": 217,
+   "won": 785,
+   "lost": 701,
+   "d_margin": 97,
+   "d_km": 120,
+   "rebundles": 44,
+   "gated": 20,
+   "urgent": 39,
+   "expired": 13,
+   "marginCents": 1391811,
+   "revenueCents": 4345060,
+   "marginShare": 0.3203203177861756,
+   "wonOrders": 416,
+   "onTimeShare": 0.9471153846153846,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "vc-4",
+   "world": "wb6615b61a4fced02e4a4",
+   "secs": 64,
+   "comp": 1.377,
+   "pairs": 86,
+   "singles": 208,
+   "quoted": 821,
+   "declined": 216,
+   "won": 678,
+   "lost": 832,
+   "d_km": 90,
+   "rebundles": 36,
+   "d_margin": 126,
+   "gated": 39,
+   "urgent": 24,
+   "expired": 10,
+   "marginCents": 1056896,
+   "revenueCents": 3307473,
+   "marginShare": 0.31954788444229176,
+   "wonOrders": 351,
+   "onTimeShare": 0.9430199430199431,
+   "undeliveredShare": 0.002849002849002849,
+   "ranked": true
+  }
+ ]
+}

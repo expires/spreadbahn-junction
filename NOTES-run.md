@@ -270,3 +270,22 @@ Frontier knobs measured today:
   test_final_rejoin.py --worlds 1 --skip-loop: ALL CHECKS PASSED (replay + rejoin identical,
   every request answered in its window, repeat dropped, interruption healed, fallback works).
   quick_test with no overrides: ev-1 16,707/98.7%, ev-4 20,286/97.2% (mean EUR18,496, 2/2 ranked).
+
+## Round-5 mission (on-time bar 92%, maximise money): gate 0.30, selection off
+
+  comp_from_qm=1 + gate_pl=0.30 + select_net=0, everything else v9 defaults.
+
+  ev-1..6: 15,042 mean / 95.92% (per seed 17,787/14,619/10,367/23,764/14,092/9,621)
+  vb-1..6: 14,874 mean / 95.27% (worst 90.3 vb-2, still ranked)
+  vc-1..4: 13,079 mean / 95.01% (worst 94.3)
+  ALL 16:  14,488 mean / 95.45% / min 90.3 / 16 ranked
+
+=> clears both round-5 bars (>= EUR14k mean and >92% on time) on every panel while being the
+highest-margin setting measured so far. Screen results that led here (same code):
+  gate 0.15 + select 5: ev 14,524/97.22 (punctuality side)
+  gate 0.20, no select: ev 14,820/96.43, vb 14,722/95.16
+  gate 0.30, no select: ev 15,042/95.92, vb 14,874/95.27, vc 13,079/95.01  <- shipped
+  gate 0.40 / off (ev-1, ev-4 only): 17,335/95.9 and 22,887/94.9; 17,359/95.9 and 22,989/95.8 -
+  the two ends do not beat 0.30 on both seeds, but a full-panel test of 0.40 is the next run.
+  late_shadow 40: ev-1 16,608/95.0, ev-4 21,324/94.0 (worse); price_mult 1.06: 14,482/95.3,
+  21,186/96.0 (worse). Both rejected.
