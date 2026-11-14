@@ -80,6 +80,7 @@ class Policy:
     cong_late: float = 0.35      # extra P(late) per unit of overload
     # Direct offers when an order gets its deadline warning without a driver.
     offers: bool = False
+    trust_invest: float = 0.0    # weight on the value of dealer trust (level 8): 1% of expected future revenue per on-time order (0 = off)
     pair_quote: float = 0.25     # backhaul arbitrage: fee discount on a request that pairs with a held order (0 = off)
     chain_offers: bool = False   # offer a nearby open gig to a driver who just finished one of ours (known to be working)
     chain_reach: int = 45        # road minutes from the drop-off to the next pickup
@@ -163,6 +164,8 @@ class Dispatcher(Desk):
         self.timers: list[tuple[int, str]] = []  # (minute, order id): held orders to post later
         self.trust: dict[str, int] = {}  # dealer -> orders delivered on time, as the rules count it (max 25, halved on a late one)
         self.settled: set[str] = set()
+        self.dealer_seen: dict[str, int] = {}
+        self.won_rev: list[float] = []  # euros of each won order, for the average
         self.gig_driver: dict[str, str] = {}
         self.gig_delivered: dict[str, int] = {}
         self.pend_day: dict[str, tuple[int, float]] = {}  # request id -> (deadline day, weight) of an open quote
@@ -295,9 +298,11 @@ class Dispatcher(Desk):
 
     def quote(self, request: PriceRequest) -> None:
         self.requests[request["id"]] = request
+        self.dealer_seen[request["dealerId"]] = self.dealer_seen.get(request["dealerId"], 0) + 1
         if self.level <= 3:
             return self.quote_fixed(request)
         p = self.p
+        tv = self.trust_value(request)
         ref = request["referenceFeeCents"] / 100
         km = sum(self.road.km(l["pickup"]["placeId"], l["delivery"]["placeId"]) for l in request["legs"])
         if km > p.max_km:
@@ -333,7 +338,7 @@ class Dispatcher(Desk):
                 x = 0.85 + i * 0.02  # price as x list
                 price = lst * x
                 win = 1 / (1 + math.exp(slope * (math.log(x) - math.log(comp))))
-                margin = price * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
+                margin = price * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10) + tv[0] * (1 - pl) - tv[1] * pl
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
             if best_x is not None and best_margin >= bar:
@@ -372,6 +377,23 @@ class Dispatcher(Desk):
             off += self.lanes.get("dealer", {}).get(request["dealerId"], 0.0)
         return off
 
+    def trust_value(self, request: PriceRequest) -> tuple[float, float]:
+        """(gain if delivered on time, loss if late) in euros of this week's future margin with this dealer.
+        Each on-time order lets the dealer accept 1% higher prices from us (max 25); a late one halves the count."""
+        if not self.p.trust_invest or self.level < 8:
+            return (0.0, 0.0)
+        end_quotes = 4 * DAY + 18 * HOUR                       # Friday 18:00: no more requests after
+        hours_left = max(0.0, (end_quotes - self.now) / 60)
+        biz_left = hours_left * 10 / 24                         # requests come mostly 09-18 on weekdays
+        hours_gone = max(10.0, (self.now - 8 * HOUR) / 60 * 10 / 24)
+        rate = self.dealer_seen.get(request["dealerId"], 1) / hours_gone      # requests per business hour
+        avg = sum(self.won_rev) / len(self.won_rev) if self.won_rev else 95.0
+        future = rate * biz_left * 0.4 * avg                   # ~40% win rate on their requests
+        count = self.trust.get(request["dealerId"], 0)
+        gain = 0.01 * future if count < 25 else 0.0
+        loss = 0.01 * (count - count // 2) * future
+        return (self.p.trust_invest * gain, self.p.trust_invest * loss)
+
     def learn(self, request_id: str, won: bool) -> None:
         """One SGD step of the logistic likelihood on log(comp)."""
         if request_id not in self.quoted:
@@ -389,6 +411,7 @@ class Dispatcher(Desk):
 
     def handle(self, event) -> None:
         if event["kind"] == "order_won":
+            self.won_rev.append(event["order"]["priceCents"] / 100)
             self.learn(event["order"]["id"], True)
             self.add_load(event["order"]["id"], True)
             self.pend_day.pop(event["order"]["id"], None)
