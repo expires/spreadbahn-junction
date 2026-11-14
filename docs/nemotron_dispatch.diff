@@ -1,0 +1,52 @@
+--- a/src/bahn/simulation/dispatch.py
++++ b/src/bahn/simulation/dispatch.py
+@@ -20,7 +20,7 @@
+ from dataclasses import asdict, dataclass, field, replace
+ from typing import Optional
+ 
+-from bahn.models import notes
++from bahn.models import nemotron_notes, notes
+ from bahn.models.regime import Regime
+ from bahn.paths import ROOT
+ from spread import starter
+@@ -120,6 +120,7 @@
+     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
+     # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
+     notes_v2: bool = True             # the team's note parser (notes.py) instead of the kit's keyword reader
++    notes_llm: bool = False           # Nemotron 3.5 Super VL reads the note too; safer reading per field wins (nemotron_notes.py)
+     combine: bool = True
+     pair_alpha_return: float = 0.75   # fee of a pair whose second car ends near the first's start, x (refA + refB)
+     pair_alpha_chain: float = 0.82    # any other feasible pair
+@@ -361,6 +362,8 @@
+ 
+     def quote(self, request: PriceRequest) -> None:
+         self.requests[request["id"]] = request
++        if self.p.notes_llm and request.get("note"):
++            nemotron_notes.client().prefetch(request)  # async; the answer is in long before the post
+         self.dealer_seen[request["dealerId"]] = self.dealer_seen.get(request["dealerId"], 0) + 1
+         if self.level <= 3:
+             return self.quote_fixed(request)
+@@ -551,8 +554,9 @@
+         if not self.p.notes_v2:
+             return Desk.post(self, order, legs, retry)
+         req = self.requests[order["id"]]
+-        stops = starter.without_windows(notes.stops_for(order, legs, req, retry, self.now), self.now)
+-        audience = notes.audience_for(order, legs, req, retry)
++        N = nemotron_notes.client() if self.p.notes_llm else notes  # falls back to the rules within 2 s
++        stops = starter.without_windows(N.stops_for(order, legs, req, retry, self.now), self.now)
++        audience = N.audience_for(order, legs, req, retry)
+         self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": self.fees_for(order, len(legs))})
+         if len(legs) > 1:  # a trade-in over the 12-hour limit goes as one gig per car, as in the kit
+             self.send()
+@@ -646,8 +650,9 @@
+         for o in (x, y):
+             req = self.requests[o["id"]]
+             if self.p.notes_v2:
+-                stops += starter.without_windows(notes.stops_for(o, [0], req, starter.Retry(), self.now), self.now)
+-                a = notes.audience_for(o, [0], req, starter.Retry())
++                N = nemotron_notes.client() if self.p.notes_llm else notes
++                stops += starter.without_windows(N.stops_for(o, [0], req, starter.Retry(), self.now), self.now)
++                a = N.audience_for(o, [0], req, starter.Retry())
+             else:
+                 stops += starter.without_windows(starter.stops_for(o, [0], req["note"], starter.Retry()), self.now)
+                 a = {"experienced": o["legs"][0]["car"]["premium"], "manualLicence": False}
