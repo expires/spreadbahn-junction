@@ -42,6 +42,12 @@ def key(pol: Policy) -> str:
     return hashlib.sha1(json.dumps(asdict(pol), sort_keys=True, default=str).encode()).hexdigest()[:10]
 
 
+def free_slots() -> int:
+    from spread.client import Client
+    busy = sum(1 for w in Client().worlds() if not w["ended"])
+    return max(2, 8 - busy)
+
+
 def run(pol: Policy, seeds, parallel, tag) -> dict:
     cache = os.path.join(ROOT, "runs", f"bt-{key(pol)}.json")
     have = json.load(open(cache)) if os.path.exists(cache) else {}
@@ -57,9 +63,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--suite", choices=SUITES, default="quick")
     ap.add_argument("--set", nargs="*", default=[])
-    ap.add_argument("--parallel", type=int, default=4)
+    ap.add_argument("--parallel", type=int, default=0, help="0 = every free practice slot")
     a = ap.parse_args()
     seeds = SUITES[a.suite]
+    a.parallel = a.parallel or free_slots()
     base = run(Policy(), seeds, a.parallel, "bt-base")
     if not a.set:
         print(f"baseline cached for {len(base)} weeks: mean €{st.mean(base[s]['margin'] for s in seeds):,.0f}")

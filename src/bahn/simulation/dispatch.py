@@ -911,7 +911,19 @@ class Dispatcher(Desk):
 
 # ---------------- runners ----------------
 
-def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[Dispatcher] = None) -> Dispatcher:
+FAST = os.environ.get("BAHN_FAST") == "1"  # backtests: fixed chunks instead of waking on every event
+
+
+def chunk_end(now: int, ends: int, desk) -> int:
+    """Fast mode: 12-minute chunks on weekday daytime (a request has 15 minutes, so every quote still lands in
+    time), 30 minutes otherwise; never past a hold timer or midnight."""
+    day, minute = now // DAY, now % DAY
+    step = 12 if (day % 7 < 5 or day == 7) and 7 * 60 <= minute < 20 * 60 else 30
+    return min(ends, (day + 1) * DAY, max(now + 1, min(now + step, desk.next_timer())))
+
+
+def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[Dispatcher] = None, fast: Optional[bool] = None) -> Dispatcher:
+    fast = FAST if fast is None else fast
     snap = world.snapshot()
     ends = snap["endsAt"]
     if desk is None:
@@ -919,6 +931,14 @@ def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[
         desk.init_supply(world.roster())
     while desk.now < ends:
         actions, desk.outbox = desk.outbox, []
+        if fast:
+            step = world.advance(to=chunk_end(desk.now, ends, desk), actions=actions)  # the kit batches >50 actions
+            desk.read_results(actions, step["results"])
+            desk.now = step["now"]
+            for event in step["events"]:
+                desk.handle(event)
+            desk.fire_timers()
+            continue
         step = world.advance(until=WAKE_ON + ["order_lost", "offer_answered"] + (["delivered"] if desk.p.chain_offers else []), max=min(ends, (desk.now // DAY + 1) * DAY, max(desk.now + 1, min(desk.next_timer(), desk.next_check()))), actions=actions)
         desk.read_results(actions, step["results"])
         desk.now = step["now"]
