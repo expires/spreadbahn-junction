@@ -1,0 +1,12 @@
+v32-hedge-edge     pr-1  margin €    10,553   372 orders   95.4% on time  comp≈1.272  q/d=766/270 km/bar/mrg=94/0/176  33s
+v32-hedge-edge     pr-4  margin €    11,558   359 orders   94.2% on time  comp≈1.512  q/d=727/311 km/bar/mrg=139/0/172  33s
+v32-hedge-edge     pr-3  margin €    12,563   400 orders   93.8% on time  comp≈1.401  q/d=773/257 km/bar/mrg=100/0/157  35s
+v32-hedge-edge     pr-2  margin €    10,399   301 orders   93.7% on time  comp≈1.409  q/d=697/343 km/bar/mrg=103/0/240  44s
+v32-hedge-edge     pr-7  margin €    10,780   359 orders   96.9% on time  comp≈1.259  q/d=758/279 km/bar/mrg=117/0/162  31s
+v32-hedge-edge     pr-6  margin €    11,268   350 orders   96.0% on time  comp≈1.286  q/d=753/277 km/bar/mrg=104/0/173  34s
+v32-hedge-edge     pr-5  margin €    16,735   457 orders   97.2% on time  comp≈1.421  q/d=828/202 km/bar/mrg=82/0/120  35s
+v32-hedge-edge     pr-8  margin €    12,049   354 orders   93.8% on time  comp≈1.369  q/d=736/301 km/bar/mrg=112/0/189  51s
+v32-hedge-edge     ho-3  margin €    10,544   372 orders   91.7% on time  comp≈1.417  q/d=744/290 km/bar/mrg=110/30/150  43s
+v32-hedge-edge     ho-4  margin €    14,199   461 orders   90.7% on time  comp≈1.441  q/d=811/225 km/bar/mrg=91/40/94  44s
+v32-hedge-edge    st-25  margin €    13,577   375 orders   93.6% on time  comp≈1.315  q/d=765/269 km/bar/mrg=107/0/162  45s
+v32-hedge-edge MEAN margin €12,202/week  worst on-time 90.7%  ranked 11/11

@@ -66,6 +66,7 @@ class Policy:
     hedge_below: float = 0.035   # aggressive while projected late share is below this (the rule allows 0.10)
     hedge_fee: float = 0.9       # fee multiple while aggressive
     hedge_lambda: float = 40.0   # late-order shadow price while aggressive
+    hedge_edge_safe: bool = True # never aggressive on orders due on a Friday or the last Monday (no catch-up day)
     price_mult: float = 1.0      # probe lever: scales every quoted price after optimisation
     fee_mult: float = 1.0        # probe lever: scales every posted fee schedule
     tradein_fee: float = 1.0     # fee-estimate multiple for a trade-in (two cars, one price): realised −€18/order at 1.0
@@ -187,9 +188,12 @@ class Dispatcher(Desk):
         self.pend_day: dict[str, tuple[int, float]] = {}  # request id -> (deadline day, weight) of an open quote
 
     # ---------- the SLA controller ----------
-    def aggressive(self) -> bool:
-        """The hedge: True while the projected late share leaves plenty of room under the 10% allowance."""
+    def aggressive(self, deadline: Optional[int] = None) -> bool:
+        """The hedge: True while the projected late share leaves plenty of room under the 10% allowance,
+        and (optionally) never for an order due on an edge day."""
         if not self.p.hedge:
+            return False
+        if self.p.hedge_edge_safe and deadline is not None and (deadline // DAY % 7 == 4 or deadline // DAY == 7):
             return False
         projected = self.sla_pressure() + (1 - self.p.sla_target)
         on = projected < self.p.hedge_below
@@ -312,7 +316,7 @@ class Dispatcher(Desk):
         sl = self.supply_late(request) + self.congestion(request)
         fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
         pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base)) + pressure)
-        lam = p.hedge_lambda if self.aggressive() else p.late_shadow
+        lam = p.hedge_lambda if self.aggressive(o["deadline"]) else p.late_shadow
         margin = lst * (1 - pl * p.late_cost) - fee - pl * lam * (1 + p.sla_gain * pressure * 10)
         if km > p.max_km or margin < p.min_margin * (1 + p.sla_gain * pressure * 10):
             self.stats["declined"] += 1
@@ -329,7 +333,6 @@ class Dispatcher(Desk):
             return self.quote_fixed(request)
         p = self.p
         tv = self.trust_value(request)
-        lam = p.hedge_lambda if self.aggressive() else p.late_shadow
         ref = request["referenceFeeCents"] / 100
         km = sum(self.road.km(l["pickup"]["placeId"], l["delivery"]["placeId"]) for l in request["legs"])
         if km > p.max_km:
@@ -353,6 +356,7 @@ class Dispatcher(Desk):
         nlegs = len(request["legs"])
         for o in request["options"]:
             lst = o["listPriceCents"] / 100
+            lam = p.hedge_lambda if self.aggressive(o["deadline"]) else p.late_shadow
             slack = self.slack_hours(request, o["deadline"])
             sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"]) \
                 + self.day_risk(loads, o["deadline"] // DAY, nlegs) + self.edge_risk(o["deadline"], km)
@@ -594,7 +598,7 @@ class Dispatcher(Desk):
                 a = {"experienced": o["legs"][0]["car"]["premium"], "manualLicence": False}
             audience = {k: audience[k] or a[k] for k in audience}
         ref = alpha * (self.requests[x["id"]]["referenceFeeCents"] + self.requests[y["id"]]["referenceFeeCents"])
-        sched = self.schedule(ref, min(x["lastPickupAt"], y["lastPickupAt"]), x["legs"][0]["pickup"]["placeId"])
+        sched = self.schedule(ref, min(x["lastPickupAt"], y["lastPickupAt"]), x["legs"][0]["pickup"]["placeId"], max(x["deadline"], y["deadline"]))
         self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": sched})
         self.send()
         if not self.gigs_of(x["id"]):  # refused: post each alone
@@ -875,7 +879,7 @@ class Dispatcher(Desk):
             return steep(self.now, ref, self.level)
         if self.level == 1:  # one fee per gig at level 1
             return [{"at": self.now, "feeCents": max(1, int(ref * 1.05 * self.fee_scale))}]
-        return self.schedule(ref, order["lastPickupAt"], order["legs"][0]["pickup"]["placeId"])
+        return self.schedule(ref, order["lastPickupAt"], order["legs"][0]["pickup"]["placeId"], order["deadline"])
 
     def opening(self, pickup: Optional[str]) -> float:
         """Opening fee multiple by driver supply around the pickup: 86% of booked gigs book at the opening fee,
@@ -888,7 +892,7 @@ class Dispatcher(Desk):
                 return mult
         return self.p.fee_open
 
-    def schedule(self, ref: float, last: int, pickup: Optional[str] = None) -> list[FeeStep]:
+    def schedule(self, ref: float, last: int, pickup: Optional[str] = None, deadline: Optional[int] = None) -> list[FeeStep]:
         steps = [(self.now, self.opening(pickup))]
         for hours_before, mult in self.p.fee_steps:
             at = last - hours_before * HOUR
@@ -898,7 +902,7 @@ class Dispatcher(Desk):
                 steps.append((at, mult))
         out: list[FeeStep] = []
         for at, mult in steps:
-            fee = max(1, int(ref * mult * self.fee_scale * self.p.fee_mult * (self.p.hedge_fee if self.aggressive() else 1.0)))
+            fee = max(1, int(ref * mult * self.fee_scale * self.p.fee_mult * (self.p.hedge_fee if self.aggressive(deadline) else 1.0)))
             if out and fee <= out[-1]["feeCents"]:
                 continue
             out.append({"at": int(at), "feeCents": fee})
