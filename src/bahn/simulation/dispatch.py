@@ -134,11 +134,11 @@ class Policy:
     combine: bool = True
     pair_alpha_return: float = 0.75   # fee of a pair whose second car ends near the first's start, x (refA + refB)
     pair_alpha_chain: float = 0.82    # any other feasible pair
-    pair_hop: int = 30                # max road minutes from A's delivery to B's pickup
+    pair_hop: int = 45                # max road minutes from A's delivery to B's pickup
     pair_return: int = 45             # B ending within this of A's pickup counts as a return
     pair_chains: bool = True          # also pair cars whose second leg does not come back
-    pair_max_drive: int = 240         # total planned driving of a pair, minutes (friend's v9 finding: tight caps, 280)
-    pair_dead_gap: float = 18.0       # only pair orders whose deadlines are at most this many hours apart (v9: 18)
+    pair_max_drive: int = 280         # total planned driving of a pair, minutes (friend's v9 finding: tight caps, 280)
+    pair_dead_gap: float = 24.0       # only pair orders whose deadlines are at most this many hours apart (v9: 18)
     snow_late: float = 0.15      # extra P(late) for a leg touching a snowed place on its pickup day
     snow_fee: float = 0.15       # fee uplift for such a leg
     snow_km: float = 0.08        # and this much more per 100 km of the leg: a long drive into snow rarely finds a driver
