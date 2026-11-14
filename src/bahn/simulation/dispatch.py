@@ -104,12 +104,12 @@ class Policy:
     mid_fee_scale: float = 0.88  # levels 4-6
     regime: bool = True          # Bayesian day level + price-war mixture + outage detection (regime.py)
     price_slope: float = 10.5    # dealer price slope used with the regime learner
-    dealer_fx: bool = False
-    lanes_v9: bool = False
+    dealer_fx: bool = False      # add persistent per-dealer price effects (tested: −€229, off)
+    lanes_v9: bool = False       # the v9 branch's per-lane competitor factors (798 lanes; tested: +€41, off)
     late_v9: bool = True         # P(late) from the v9 branch's archive-fitted model (74,731 orders, OOF AUC 0.79)
     late_v9_scale: float = 1.0   # calibration multiplier on it
     late_v9_extras: bool = True  # keep our day-capacity, edge-day, congestion and snow terms on top
-    late_v9_extra_scale: float = 0.3  # weight on those terms when kept (their model already sees backlog and weather)       # use the v9 branch's per-lane competitor factors (798 lanes, 210 worlds) instead      # add persistent per-dealer price effects
+    late_v9_extra_scale: float = 0.3  # weight on those terms (their model already sees backlog and weather): +€848/wk
     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
     # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
     notes_v2: bool = True             # the team's note parser (notes.py) instead of the kit's keyword reader
