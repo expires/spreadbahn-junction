@@ -3,7 +3,7 @@
 set -o pipefail
 cd "$(dirname "$0")" && . ./.env && . .venv/bin/activate
 mkdir -p runs
-until python dispatch.py --final 2>&1 | tee -a runs/final-$(date +%Y%m%d).log; do
+until caffeinate -dims python dispatch.py --final 2>&1 | tee -a runs/final-$(date +%Y%m%d).log; do
   echo "$(date) bot exited; restarting in 1 s" | tee -a runs/final-$(date +%Y%m%d).log
   sleep 1
 done

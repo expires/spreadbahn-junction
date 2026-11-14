@@ -1,0 +1,3 @@
+BASE obj 12,691 mean 12,691 worst 0.954
+it 1: {'pair_alpha_return': 0.749, 'day_late': 0.677} -> obj 12,583 mean 12,583 worst 0.946 
+it 2: {'hold_hours': 32.038, 'late_shadow': 90.073, 'price_slope': 9.647} -> obj 12,696 mean 12,696 worst 0.932 ACCEPT
