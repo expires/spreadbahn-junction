@@ -1,0 +1,8 @@
+#!/bin/sh
+# Live final / test final under a supervisor: if the bot dies, it restarts and rebuilds from the server in < 1 s.
+cd "$(dirname "$0")" && . ./.env && . .venv/bin/activate
+mkdir -p runs
+until python dispatch.py --final 2>&1 | tee -a runs/final-$(date +%Y%m%d).log; do
+  echo "$(date) bot exited; restarting in 1 s" | tee -a runs/final-$(date +%Y%m%d).log
+  sleep 1
+done
