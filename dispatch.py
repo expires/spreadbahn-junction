@@ -77,7 +77,7 @@ class Policy:
     cong_late: float = 0.35      # extra P(late) per unit of overload
     # Direct offers when an order gets its deadline warning without a driver.
     offers: bool = False
-    pair_quote: float = 0.0      # backhaul arbitrage: fee discount on a request that pairs with a held order (0 = off)
+    pair_quote: float = 0.25     # backhaul arbitrage: fee discount on a request that pairs with a held order (0 = off)
     chain_offers: bool = False   # offer a nearby open gig to a driver who just finished one of ours (known to be working)
     chain_reach: int = 45        # road minutes from the drop-off to the next pickup
     chain_fee: float = 1.0       # x the gig's current app fee
