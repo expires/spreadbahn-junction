@@ -73,7 +73,9 @@ class Policy:
     private_fee: float = 1.3     # fee-estimate multiple when a stop is a private address (realised €10/order vs €39)
     fee_open_tiers: tuple = ()   # ((supply index at least, opening multiple), ...), highest first; () = flat fee_open
     fee_steps: tuple = ((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))
-    hold_hours: float = 36.0     # post an order only this many hours before lastPickupAt
+    hold_hours: float = 36.0
+    post_clock: float = -1.0     # >= 0: post at this hour of day (e.g. 8.0) instead of a fixed lead (-1 = off)
+    post_min_lead: float = 30.0  # with post_clock: at least this many hours before the last pickup     # post an order only this many hours before lastPickupAt
     # Cost model: expected fee ratio and P(late) as functions of slack hours at the quote.
     exp_fee: tuple = ((4, 2.0), (8, 1.55), (16, 1.25), (30, 1.05), (1e9, 0.95))
     p_late: tuple = ((4, 0.6), (8, 0.3), (16, 0.12), (30, 0.06), (1e9, 0.03))
@@ -696,7 +698,7 @@ class Dispatcher(Desk):
         post = self.post
 
         def first_post(order, legs, *retry):
-            post_at = order["lastPickupAt"] - int(self.p.hold_hours * HOUR)
+            post_at = self.post_time(order)
             if not retry and order["id"] not in self.urgent and post_at > self.now + 30:
                 self.timers.append((post_at, order["id"]))
             else:
@@ -876,11 +878,23 @@ class Dispatcher(Desk):
     def win(self, order: Order) -> None:
         if order["id"] in self.requests and order["id"] not in self.orders:
             self.orders[order["id"]] = order
-            post_at = order["lastPickupAt"] - int(self.p.hold_hours * HOUR)
+            post_at = self.post_time(order)
             if post_at > self.now + 30:
                 self.timers.append((post_at, order["id"]))
             else:
                 self.post(order, undelivered(order))
+
+    def post_time(self, order: Order) -> int:
+        """When to put a won order in the app. Default: a fixed lead before its last pickup (hold_hours).
+        With post_clock >= 0: at that hour of day, on the last day that still leaves post_min_lead hours
+        before the last pickup, so every gig appears when drivers are browsing (not in the evening or at night)."""
+        last = order["lastPickupAt"]
+        if self.p.post_clock < 0:
+            return last - int(self.p.hold_hours * HOUR)
+        slot = (last - int(self.p.post_min_lead * HOUR)) // DAY * DAY + int(self.p.post_clock * HOUR)
+        while slot > last - int(self.p.post_min_lead * HOUR):
+            slot -= DAY
+        return slot
 
     def held(self) -> set[str]:
         return {oid for _, oid in self.timers}
