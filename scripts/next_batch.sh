@@ -17,4 +17,5 @@ if os.path.exists(old) and not os.path.exists(new):
     shutil.copy(old, new); print("baseline cache", old, "->", new)
 else:
     print("baseline cache: old", os.path.exists(old), "new", os.path.exists(new))
-PYcd scripts && python -u frontier.py --suite full "$@" 2>&1 | grep --line-buffered -vE 'rows$|^ *(fr-|bt-)'
+PY
+cd scripts && python -u frontier.py --suite full "$@" 2>&1 | grep --line-buffered -vE 'rows$|^ *(fr-|bt-)'
