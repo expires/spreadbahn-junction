@@ -89,7 +89,7 @@ class Regime:
                  outage_mode: str = "mean", outage_on: float = 0.5, first_day: int = 0, last_day: int = 4,
                  lo: float = math.log(1.0), hi: float = math.log(1.9), pw_floor: float = 0.05,
                  pw_cap: float = 0.7, outage_cap: float = 0.7, effects: Optional[dict] = None,
-                 q_effect: float = 0.03):
+                 q_effect: float = 0.03, warm_n: int = 0, warm_q: float = 0.0):
         self.slope, self.sd_day, self.q_level = slope, sd_day, q_level
         self.pw_shift, self.outage_shift = pw_shift, outage_shift
         self.pw_detect, self.outage_detect = pw_detect, outage_detect
@@ -101,6 +101,9 @@ class Regime:
         # with a random walk of q_effect per day ({} turns them off; dealer effects did not validate).
         self.eff_sd = dict(effects) if effects is not None else {"pickup": 0.03, "delivery": 0.03}
         self.q_effect = q_effect
+        # Warm-up: for the session's first warm_n outcomes, extra random-walk variance on the world level before each
+        # update, warm_q^2 * (1 - n / warm_n): a learning rate that starts high and decays to today's (0 = off).
+        self.warm_n, self.warm_q, self.n_obs = warm_n, warm_q, 0
         self.eff: dict = {}
         pl = {p["id"]: (p["lat"], p["lon"]) for p in places}
         busy = busy or BUSY
@@ -258,6 +261,12 @@ class Regime:
             l = math.log(p1 / p0) if won else math.log((1 - p1) / (1 - p0))
             for c in self.centers_of[place]:
                 self.llr[c] += l
+        n_obs, warm_n = getattr(self, "n_obs", 0), getattr(self, "warm_n", 0)   # (old checkpoints lack these)
+        if warm_n and n_obs < warm_n:
+            q = self.warm_q ** 2 * (1 - n_obs / warm_n)
+            for f in self.filters:
+                f.pmm += q
+        self.n_obs = n_obs
         # Price-war mixture weights, then each filter's update. The war runs 08:00-18:00 only.
         em, ev = self.effect(request)
         xs = [off + em - lr + self._pw_off(k, t_q) for k in range(2)]
@@ -265,6 +274,7 @@ class Regime:
         lik = [p if won else 1 - p for p in lik]
         ws = [w * max(l, 1e-6) for w, l in zip(self.wts, lik)]
         s = sum(ws)
+        marginal = s                            # P(this outcome) before the update, for PriorMix
         self.wts = [w / s for w in ws] if s > 0 else self.wts
         if self.wts[1] < 1e-6:
             self.wts = [1.0 - 1e-6, 1e-6]
@@ -278,6 +288,8 @@ class Regime:
                 e[0] += e[1] * g / (1 + h * (v + ev))
                 e[1] -= e[1] * e[1] * h / (1 + h * (v + ev))
         self.n_today += 1
+        self.n_obs += 1
+        return marginal
 
     def _keys(self, request: dict) -> list:
         ks = []
@@ -307,6 +319,54 @@ class Regime:
         pout, c = self.outage_posterior()
         return dict(day=self.day, level=round(math.exp(self.level(self.day * DAY + WIN_FROM)), 3),
                     p_pw=round(self.wts[1], 3), p_outage=round(pout, 3), center=c)
+
+
+class PriorMix:
+    """"Learn fast when the prior is wrong, settle when it is right": two Regime learners that differ only in the
+    prior width of the world level (today's tight one and a wide one), weighted by Bayes on how well each predicted
+    our wins and losses. In a typical week the tight learner keeps the weight and nothing changes; in a week far
+    from the prior (the 14:00 test final: competitor ~1.2x list against a 1.37x prior) the wide one takes over
+    within a few dozen quotes, and its day-one deviation goes into the world level instead of the day factor or
+    the price-war hypothesis. Same interface as Regime for the dispatcher (level, adjust, observe)."""
+
+    def __init__(self, members: list, weights: list, floor: float = 0.0):
+        self.members, self.w, self.floor = members, list(weights), floor
+
+    def level(self, now: int) -> float:
+        return sum(w * m.level(now) for w, m in zip(self.w, self.members))
+
+    def adjust(self, request: dict, now: int) -> float:
+        return sum(w * m.adjust(request, now) for w, m in zip(self.w, self.members))
+
+    def predict(self, request: dict, lr: float, now: int) -> float:
+        return sum(w * m.predict(request, lr, now) for w, m in zip(self.w, self.members))
+
+    def observe(self, request: dict, lr: float, won: bool, now: Optional[int] = None) -> float:
+        lik = [m.observe(request, lr, won, now) for m in self.members]
+        s = sum(w * l for w, l in zip(self.w, lik))
+        ws = [w * l / s for w, l in zip(self.w, lik)] if s > 0 else self.w
+        if self.floor:
+            ws = [max(self.floor, w) for w in ws]
+            ws = [w / sum(ws) for w in ws]
+        self.w = ws
+        return s
+
+    def p_price_war(self, now: Optional[int] = None) -> float:
+        return sum(w * m.p_price_war(now) for w, m in zip(self.w, self.members))
+
+    def p_down(self, place: str) -> float:
+        return sum(w * m.p_down(place) for w, m in zip(self.w, self.members))
+
+    def _roll(self, now: int) -> None:
+        for m in self.members:
+            m._roll(now)
+
+    @property
+    def history(self) -> list:
+        return self.members[max(range(len(self.w)), key=self.w.__getitem__)].history
+
+    def state(self) -> dict:
+        return {**self.members[max(range(len(self.w)), key=self.w.__getitem__)].state(), "w_wide": round(self.w[-1], 3)}
 
 
 class SGD:
