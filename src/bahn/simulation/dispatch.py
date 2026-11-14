@@ -1001,7 +1001,12 @@ class Dispatcher(Desk):
 
 # ---------------- runners ----------------
 
-FAST = os.environ.get("BAHN_FAST") == "1"  # backtests: fixed chunks instead of waking on every event
+# Request budget (organiser, 14 Nov): a fast practice week is ~350 requests, a slow one ~2,000, and the
+# bucket is shared by the whole team. play_practice already uses untilEvent and sends actions with the
+# advance, but its wake set + 36 h hold timers estimates ~1,600 advance calls/week on archived level-8
+# worlds. Count before adding a wake kind; keep <=50 actions per advance (the kit splits larger batches
+# into extra /actions requests). See docs/API-BUDGET.md. The live final uses the stream, not this path.
+FAST = os.environ.get("BAHN_FAST") == "1"  # fixed chunks instead of waking on every event; measured ~-EUR357/wk bias, smoke tests only
 
 
 def chunk_end(now: int, ends: int, desk) -> int:

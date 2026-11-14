@@ -20,6 +20,16 @@ python -m bahn.analysis.stress_scan --n 40                                      
 python -m bahn.simulation.dispatch --cleanup                                      # delete practice worlds a killed run left behind
 ```
 
+## Request budget (read before sweeping)
+
+The practice limit is **per team**, not per process. Organiser guidance, 14 Nov: a fast system plays a
+week in about **350 requests**, a slow one uses **2,000**; put up to **50 actions** in the `advance`
+call; use `untilEvent` and do not step minute by minute; `advance` already returns the new events, so
+do not call `/events` or `/score` after each step; eight parallel weeks are not faster than eight
+sequential ones. Our current practice loop estimates to **~1,600 requests/week** (slow band), so read
+[docs/API-BUDGET.md](docs/API-BUDGET.md) before changing the runner or starting a large sweep. The
+live final is stream-driven and is not affected by this advice.
+
 ## Layout
 
 ```
