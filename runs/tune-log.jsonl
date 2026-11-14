@@ -1,2 +1,0 @@
-{"it": 1, "changed": {"pair_alpha_return": 0.749, "day_late": 0.677}, "obj": 12582.541666666668, "mean": 12582.541666666668, "worst": 0.9457627118644067, "accepted": false}
-{"it": 2, "changed": {"hold_hours": 32.038, "late_shadow": 90.073, "price_slope": 9.647}, "obj": 12695.9475, "mean": 12695.9475, "worst": 0.9319526627218935, "accepted": true}

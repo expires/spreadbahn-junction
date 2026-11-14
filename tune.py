@@ -38,6 +38,7 @@ def main() -> None:
     ap.add_argument("--floor", type=float, default=0.93)
     ap.add_argument("--until", default="13:45")
     ap.add_argument("--seed", type=int, default=1)
+    ap.add_argument("--min-gain", type=float, default=150.0, help="euros/week a candidate must add (≈1 paired SE on 12 seeds)")
     a = ap.parse_args()
     seeds = a.train.split(",")
     stop_h, stop_m = map(int, a.until.split(":"))
@@ -63,7 +64,7 @@ def main() -> None:
             continue
         s = score(res, a.floor)
         changed = {k: v for k, v in asdict(cand).items() if asdict(best)[k] != v}
-        accepted = s[0] > best_s[0]
+        accepted = s[0] > best_s[0] + a.min_gain
         with open(log_path, "a") as fh:
             fh.write(json.dumps({"it": it, "changed": changed, "obj": s[0], "mean": s[1], "worst": s[2], "accepted": accepted}) + "\n")
         print(f"it {it}: {changed} -> obj {s[0]:,.0f} mean {s[1]:,.0f} worst {s[2]:.3f} {'ACCEPT' if accepted else ''}", flush=True)
