@@ -73,7 +73,7 @@ class Policy:
     private_fee: float = 1.3     # fee-estimate multiple when a stop is a private address (realised €10/order vs €39)
     fee_open_tiers: tuple = ()   # ((supply index at least, opening multiple), ...), highest first; () = flat fee_open
     fee_steps: tuple = ((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))
-    hold_hours: float = 36.0
+    hold_hours: float = 44.0     # post an order this many hours before lastPickupAt (44 h: +€213/wk vs 36 h on 44 weeks)
     post_clock: float = -1.0     # >= 0: post at this hour of day (e.g. 8.0) instead of a fixed lead (-1 = off)
     post_min_lead: float = 30.0  # with post_clock: at least this many hours before the last pickup     # post an order only this many hours before lastPickupAt
     # Cost model: expected fee ratio and P(late) as functions of slack hours at the quote.
