@@ -105,7 +105,8 @@ class Policy:
     comp_lo: float = 1.22        # level 8 range from the rules: 1.26-1.54 (with day factors around it)
     comp_hi: float = 1.60
     # Fees, as multiples of the typical fee, stepped by hours before lastPickupAt.
-    fee_open: float = 0.9
+    fee_open: float = 0.9        # the opening fee as a multiple of the reference fee
+    fee_step_scale: float = 1.0  # scale the rising ladder multipliers (<1 books cheaper but later)
     fee_steps: tuple = ((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))
     hold_hours: float = 0.0      # legacy: if > 0, hold a single order until lastPickupAt - hold_hours
     pair_enabled: float = 1.0    # 1 = pair two single-car orders into one gig when the chain works
@@ -599,18 +600,22 @@ class Dispatcher(Desk):
             deadline = self.effective_deadline(request, option["deadline"])
             slack = self.slack_hours(request, deadline)
             lists[kind] = option["listPriceCents"]
-            fees[kind] = (ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0)
-                          * (1 + p.sup_fee * max(0.0, sl - p.sup_base)) * uplift)
+            fee_hand = (ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0)
+                        * (1 + p.sup_fee * max(0.0, sl - p.sup_base)) * uplift)
             hand = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
-            pl = hand
-            if self.late is not None and self.supply:
-                try:
-                    row = late_features(request, {"kind": kind, "deadline": deadline, "listPriceCents": lists[kind]},
-                                        None, self.supply, self.road, self.drivers, self.world_mean_supply)
-                    pl = float(self.late.p_late(row))
+            pl, fee = hand, fee_hand
+            if self.smodels is not None and self.supply_struct is not None and supply_mod is not None:
+                try:  # the fitted cost model is what the legacy path gates and margins with
+                    feats = supply_mod.order_features(request, option, self.road, self.supply_struct,
+                                                      outstanding=self._outstanding(),
+                                                      weather=self._weather(request, deadline))
+                    fit_fee = float(self.smodels.booking.expected_fee_cents(feats)) / 100.0
+                    fit_pl = float(self.smodels.lateness.p_late(feats))
+                    if 0.0 <= fit_pl <= 1.0 and fit_fee > 0.0:
+                        pl, fee = fit_pl, fit_fee
                 except Exception:  # noqa: BLE001
-                    pl = hand
-            pls[kind], slack_of[kind] = pl, slack
+                    pass
+            fees[kind], pls[kind], slack_of[kind] = fee, pl, slack
         order = [option["kind"] for option in request["options"]]
         live = [k for k in order if slack_of[k] >= p.min_slack_h and sl <= p.supply_gate
                 and not (p.gate_pl > 0 and pls[k] > p.gate_pl)]
@@ -1129,7 +1134,8 @@ class Dispatcher(Desk):
             if floor is not None and floor > self.p.fee_open:
                 base = max(base, (ra["referenceFeeCents"] + rb["referenceFeeCents"])
                            * floor / max(1e-6, self.p.fee_open))
-        return bundle_schedule(self.now, last, base, self.p.fee_open, tuple(self.p.fee_steps))
+        steps = tuple((hours, mult * self.p.fee_step_scale) for hours, mult in self.p.fee_steps)
+        return bundle_schedule(self.now, last, base, self.p.fee_open, steps)
 
     def _post_bundle(self, got: dict, ra: dict, rb: dict) -> None:
         first, second = got["first"], got["second"]
@@ -1212,6 +1218,7 @@ class Dispatcher(Desk):
         last = order["lastPickupAt"]
         steps = [(self.now, self.p.fee_open)]
         for hours_before, mult in self.p.fee_steps:
+            mult = mult * self.p.fee_step_scale
             at = last - hours_before * HOUR
             if at <= self.now:
                 steps[0] = (self.now, max(steps[0][1], mult))

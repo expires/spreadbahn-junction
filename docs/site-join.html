@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en" data-bx-palette="dark">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spread: create a team</title>
+    <meta name="description" content="Create your team for Spread: one key for every member and for your code." />
+    <meta name="color-scheme" content="dark" />
+    <meta name="theme-color" content="#12110e" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Spread: create a team" />
+    <meta property="og:description" content="Create your team for Spread: one key for every member and for your code." />
+    <meta property="og:image" content="https://spread.bahnexpress.com/og.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="icon" href="/icon-2nt2tvdj.svg" type="image/svg+xml" />
+    
+    
+  <link rel="stylesheet" crossorigin href="/chunk-xc3qns51.css"><script type="module" crossorigin src="/chunk-h832q0q2.js"></script></head>
+  <body>
+    <header class="site-header"></header>
+    <main class="frame page" id="content">
+      <div id="join">
+        <div class="page-head">
+          <h1>Create your team</h1>
+          <p>One team, one key. Every member signs in with the key, and your code uses it for the API.</p>
+        </div>
+        <form class="form narrow" novalidate>
+          <div class="field">
+            <label for="name">Team name</label>
+            <input id="name" name="name" autocomplete="off" spellcheck="false" maxlength="40" enterkeyhint="next" required aria-describedby="name-hint name-error" data-1p-ignore data-lpignore="true" />
+            <p class="hint" id="name-hint">2 to 40 characters. Every team sees it on the leaderboard.</p>
+            <p class="error" id="name-error" role="alert"></p>
+          </div>
+          <div class="field">
+            <label for="code">Event code</label>
+            <input id="code" name="code" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go" required aria-describedby="code-hint code-error" data-1p-ignore data-lpignore="true" />
+            <p class="hint" id="code-hint">On Bahn’s challenge page on the Junction platform, or ask us at our booth. Capitals, spaces and the dash do not matter.</p>
+            <p class="error" id="code-error" role="alert"></p>
+          </div>
+          <p class="error" id="form-error" role="alert"></p>
+          <button class="button primary" type="submit">Create your team</button>
+          <p class="aside">Already have a key? <a href="/team">Sign in</a>.</p>
+        </form>
+      </div>
+
+      <div id="made" hidden>
+        <div class="page-head">
+          <h1 data-name tabindex="-1"></h1>
+          <p>Your team exists. This is its key: share it with your team. Every member signs in with it, and your team page always shows it.</p>
+        </div>
+        <section class="block">
+          <div class="copy big"><span data-key></span><button type="button" data-copy="">Copy</button></div>
+        </section>
+        <section class="block">
+          <h2>For your code and your agent</h2>
+          <pre class="copy"><code data-env></code><button type="button" data-copy="">Copy</button></pre>
+        </section>
+        <section class="block">
+          <div class="actions"><a class="button primary" href="/team">Go to your team page</a><a class="button" href="/how">How it works</a></div>
+        </section>
+      </div>
+    </main>
+    <footer class="site-footer"></footer>
+    
+  </body>
+</html>
