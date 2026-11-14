@@ -80,6 +80,10 @@ class Policy:
     cong_late: float = 0.35      # extra P(late) per unit of overload
     # Direct offers when an order gets its deadline warning without a driver.
     offers: bool = False
+    pair_quote: float = 0.0      # backhaul arbitrage: fee discount on a request that pairs with a held order (0 = off)
+    chain_offers: bool = False   # offer a nearby open gig to a driver who just finished one of ours (known to be working)
+    chain_reach: int = 45        # road minutes from the drop-off to the next pickup
+    chain_fee: float = 1.0       # x the gig's current app fee
     low_fee_scale: float = 0.75  # levels 1-3 (no competitor, many drivers): fees and fee estimates scale by this
     mid_fee_scale: float = 0.88  # levels 4-6
     regime: bool = True          # Bayesian day level + price-war mixture + outage detection (regime.py)
@@ -96,6 +100,7 @@ class Policy:
     pair_chains: bool = False         # also pair cars whose second leg does not come back
     snow_late: float = 0.15      # extra P(late) for a leg touching a snowed place on its pickup day
     snow_fee: float = 0.15       # fee uplift for such a leg
+    snow_km: float = 0.08        # and this much more per 100 km of the leg: a long drive into snow rarely finds a driver
     offer_fee: float = 2.0       # x typical fee
     offer_reach: int = 150       # only drivers living within this many road minutes of the pickup
     max_km: float = 520.0        # decline longer lanes
@@ -105,6 +110,15 @@ class Policy:
     sla_gain: float = 2.0        # how hard projected lateness raises the margin bar
     sla_prior_n: int = 120       # orders assumed on time, so early noise cannot trip the controller
     decline_mult: float = 4.0    # a declined option is quoted at this x list
+    # Day capacity: legs due (by deadline day) against the whole roster. Fridays and the last Monday
+    # collect the next-day and 3-day work of the days before them, and a flu or snow day on a full day
+    # leaves dozens of cars without a driver (ho-3: 136 legs due on a flu Friday, 39 late).
+    day_cap: float = 10.0        # legs per day per 100 drivers before P(late) rises (0 = off)
+    day_late: float = 0.75       # extra P(late) per unit of day overload (before pl_scale)
+    day_pend: float = 0.6        # an open quote counts as this share of its legs (a bulk order is quoted all at once)
+    # Edge days: a car due on a Friday or the last Monday has no next business day to catch up on, and
+    # long lanes then run late four times as often as midweek (17% vs 4%, 40 runs). Extra P(late) by km:
+    edge_late: tuple = (0.07, 0.05, 0.2)  # under 150 km, 150-300 km, over 300 km (before pl_scale)
 
 
 def step_lookup(table: tuple, x: float) -> float:
@@ -149,6 +163,9 @@ class Dispatcher(Desk):
         self.timers: list[tuple[int, str]] = []  # (minute, order id): held orders to post later
         self.trust: dict[str, int] = {}  # dealer -> orders delivered on time, as the rules count it (max 25, halved on a late one)
         self.settled: set[str] = set()
+        self.gig_driver: dict[str, str] = {}
+        self.gig_delivered: dict[str, int] = {}
+        self.pend_day: dict[str, tuple[int, float]] = {}  # request id -> (deadline day, weight) of an open quote
 
     # ---------- the SLA controller ----------
     def sla_pressure(self) -> float:
@@ -202,7 +219,7 @@ class Dispatcher(Desk):
             start = leg["pickup"]["window"]["from"]
             places = {leg["pickup"]["placeId"], leg["delivery"]["placeId"]}
             if any(f < deadline and t > start and places & ps for f, t, ps in self.snow):
-                return self.p.snow_late
+                return self.p.snow_late + self.p.snow_km * self.road.km(leg["pickup"]["placeId"], leg["delivery"]["placeId"]) / 100
         return 0.0
 
     def load_key(self, request: PriceRequest) -> tuple:
@@ -214,6 +231,34 @@ class Dispatcher(Desk):
         cap = max(self.p.cap_min, self.p.cap_per_supply * self.supply.get(key[0], 0))
         over = (self.load.get(key, 0.0) + len(request["legs"])) / cap - 1
         return self.p.cong_late * max(0.0, over)
+
+    # ---------- day capacity ----------
+    def day_loads(self) -> dict[int, float]:
+        """Legs due by deadline day: won orders, and open quotes at their weight."""
+        out: dict[int, float] = {}
+        for o in self.orders.values():
+            d = o["deadline"] // DAY
+            out[d] = out.get(d, 0.0) + len(o["legs"])
+        for d, w in self.pend_day.values():
+            out[d] = out.get(d, 0.0) + w
+        return out
+
+    def day_capacity(self, day: int) -> float:
+        return self.p.day_cap * len(getattr(self, "roster", []) or []) / 100
+
+    def day_risk(self, loads: dict[int, float], day: int, legs: int) -> float:
+        if not self.p.day_cap:
+            return 0.0
+        cap = self.day_capacity(day)
+        if cap <= 0:
+            return 0.0
+        return self.p.day_late * max(0.0, (loads.get(day, 0.0) + legs) / cap - 1)
+
+    def edge_risk(self, deadline: int, km: float) -> float:
+        day = deadline // DAY
+        if day % 7 != 4 and day != 7:
+            return 0.0
+        return self.p.edge_late[0 if km < 150 else 1 if km < 300 else 2]
 
     def add_load(self, request_id: str, outcome: Optional[bool]) -> None:
         if request_id not in self.pending:
@@ -272,11 +317,16 @@ class Dispatcher(Desk):
         slope = p.price_slope if self.regime else p.slope
         prices: dict[str, int] = {}
         best_lr = None
+        loads = self.day_loads() if p.day_cap else {}
+        nlegs = len(request["legs"])
         for o in request["options"]:
             lst = o["listPriceCents"] / 100
             slack = self.slack_hours(request, o["deadline"])
-            sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"])
+            sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"]) \
+                + self.day_risk(loads, o["deadline"] // DAY, nlegs) + self.edge_risk(o["deadline"], km)
             fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
+            if p.pair_quote and self.has_backhaul(request, o):
+                fee *= 1 - p.pair_quote
             pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base)) + pressure)
             best, best_x = -1e9, None
             for i in range(60):
@@ -302,6 +352,9 @@ class Dispatcher(Desk):
             key, w = self.load_key(request), 0.6 * len(request["legs"])
             self.pending[request["id"]] = (key, w)
             self.load[key] = self.load.get(key, 0.0) + w
+            if p.day_cap:  # the open quote weighs on the day of its fastest option offered
+                kind = next(o for o in request["options"] if prices[o["kind"]] < o["listPriceCents"] * 3)
+                self.pend_day[request["id"]] = (kind["deadline"] // DAY, p.day_pend * nlegs)
             # Learn the competitor only where we offered the dealer's fastest option: without it,
             # dealers turn to the competitor at any price, and the estimate would sink.
             fastest = request["options"][0]
@@ -338,22 +391,29 @@ class Dispatcher(Desk):
         if event["kind"] == "order_won":
             self.learn(event["order"]["id"], True)
             self.add_load(event["order"]["id"], True)
+            self.pend_day.pop(event["order"]["id"], None)
         elif event["kind"] == "order_lost":
             self.learn(event["requestId"], False)
             self.add_load(event["requestId"], False)
+            self.pend_day.pop(event["requestId"], None)
         if event["kind"] == "forecast":
             self.snow.append((event["from"], event["to"], set(event["placeIds"])))
         super().handle(event)
         if self.p.offers and event["kind"] == "deadline_close":
             self.offer_order(event["orderId"])
-        elif self.p.offers and event["kind"] == "offer_answered":
+        elif event["kind"] == "offer_answered":
             self.open_offers[event["gigId"]] = max(0, self.open_offers.get(event["gigId"], 0) - 1)
-            if event["answer"] != "accepted":
+            self.stats["offer_" + event["answer"]] = self.stats.get("offer_" + event["answer"], 0) + 1
+            if self.p.offers and event["answer"] != "accepted":
                 oid = self.posts.get(event["gigId"], {}).get("stops", [{}])[0].get("orderId")
                 if oid:
                     self.offer_order(oid)
+        if event["kind"] == "gig_booked":
+            self.gig_driver[event["gigId"]] = event["driverId"]
         if event["kind"] == "delivered":
             self.settle(event["orderId"])
+            if self.p.chain_offers:
+                self.chain_offer(event)
 
     def settle(self, order_id: str) -> None:
         """Dealer trust at level 8: +1 per order on time, up to 25; a late order halves the count."""
@@ -393,6 +453,30 @@ class Dispatcher(Desk):
             return False
         leg = o["legs"][0]
         return not (leg["pickup"]["privateAddress"] or leg["delivery"]["privateAddress"])
+
+    def has_backhaul(self, request: PriceRequest, option: dict) -> bool:
+        """Would this request, won with this option, form a return pair with an order we hold unposted or unbooked?"""
+        if len(request["legs"]) != 1 or not self.p.combine:
+            return False
+        leg = request["legs"][0]
+        if leg["pickup"]["privateAddress"] or leg["delivery"]["privateAddress"]:
+            return False
+        drive = self.road.minutes(leg["pickup"]["placeId"], leg["delivery"]["placeId"])
+        hypo = {"id": request["id"], "legs": request["legs"], "deadline": option["deadline"],
+                "lastPickupAt": option["deadline"] - drive - 30, "deliveredAt": [None]}
+        held = self.held()
+        for b in self.orders.values():
+            if not self.pairable(b) or b["id"] in self.urgent:
+                continue
+            gigs = self.gigs_of(b["id"])
+            if gigs and (any(g in self.booked for g in gigs) or any(len(self.posts.get(g, {}).get("stops", [])) != 2 for g in gigs)):
+                continue
+            if not gigs and b["id"] not in held:
+                continue
+            for x, y in ((hypo, b), (b, hypo)):
+                if self.pair_plan(x, y) and self.road.minutes(y["legs"][0]["delivery"]["placeId"], x["legs"][0]["pickup"]["placeId"]) <= self.p.pair_return:
+                    return True
+        return False
 
     def pair_plan(self, x: Order, y: Order) -> Optional[tuple]:
         """(score, alpha) if one driver can take x then y on time, by road minutes with buffers; else None."""
@@ -572,6 +656,57 @@ class Dispatcher(Desk):
                 self.open_offers[g] = max(0, self.open_offers.get(g, 0) - 1)
                 self.stats["offer_refused"] = self.stats.get("offer_refused", 0) + 1
 
+    # ---------- chaining by direct offer ----------
+    def current_fee(self, gig_id: str) -> int:
+        sched = self.posts[gig_id]["schedule"]
+        fee = sched[0]["feeCents"]
+        for st in sched:
+            if st["at"] <= self.now:
+                fee = st["feeCents"]
+        return fee
+
+    def chain_offer(self, event) -> None:
+        """A driver who just delivered our car's last stop is working today and stands at the drop-off:
+        offer them our open gig that picks up nearest, before the app's raises do."""
+        gid = event["gigId"]
+        post = self.posts.get(gid)
+        driver = self.gig_driver.get(gid)
+        if post is None or driver is None:
+            return
+        self.gig_delivered[gid] = self.gig_delivered.get(gid, 0) + 1
+        if self.gig_delivered[gid] < sum(1 for st in post["stops"] if st["kind"] == "delivery"):
+            return  # the driver still has cars on this gig
+        hour = self.now % DAY // 60
+        if hour >= 21 or hour < 7 or self.offers_today.get((driver, self.now // DAY), 0) >= 3:
+            return
+        here = event["placeId"]
+        best = None
+        for oid, legs in self.leg_gigs.items():
+            for g in set(legs.values()):
+                if g in self.booked or g not in self.posts or self.open_offers.get(g, 0) >= 3 or driver in self.offered.get(g, set()):
+                    continue
+                order = self.orders.get(oid)
+                first = next((st for st in self.posts[g]["stops"] if st["kind"] == "pickup"), None)
+                if order is None or first is None or first["orderId"] != oid:
+                    continue
+                if self.posts[g]["audience"].get("experienced") or self.posts[g]["audience"].get("manualLicence"):
+                    continue  # we do not know this driver's licence/rating here cheaply; keep it simple
+                pick = order["legs"][first["leg"]]["pickup"]
+                mins = self.road.minutes(here, pick["placeId"])
+                if mins > self.p.chain_reach or pick["window"]["from"] > self.now + 180 or order["lastPickupAt"] < self.now + mins + 30:
+                    continue
+                key = (order["lastPickupAt"], mins)
+                if best is None or key < best[0]:
+                    best = (key, g)
+        if best is None:
+            return
+        g = best[1]
+        self.outbox.append({"type": "offer", "gigId": g, "driverId": driver, "feeCents": int(self.current_fee(g) * self.p.chain_fee)})
+        self.offered.setdefault(g, set()).add(driver)
+        self.offers_today[(driver, self.now // DAY)] = self.offers_today.get((driver, self.now // DAY), 0) + 1
+        self.open_offers[g] = self.open_offers.get(g, 0) + 1
+        self.stats["chain_offers"] = self.stats.get("chain_offers", 0) + 1
+
     # ---------- direct offers ----------
     def offer_order(self, order_id: str) -> None:
         """Offers each unbooked gig of the order to the nearest suitable drivers, up to 3 open offers per gig."""
@@ -673,7 +808,7 @@ def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[
         desk.init_supply(world.roster())
     while desk.now < ends:
         actions, desk.outbox = desk.outbox, []
-        step = world.advance(until=WAKE_ON + ["order_lost", "offer_answered"], max=min(ends, (desk.now // DAY + 1) * DAY, max(desk.now + 1, desk.next_timer())), actions=actions)
+        step = world.advance(until=WAKE_ON + ["order_lost", "offer_answered"] + (["delivered"] if desk.p.chain_offers else []), max=min(ends, (desk.now // DAY + 1) * DAY, max(desk.now + 1, desk.next_timer())), actions=actions)
         desk.read_results(actions, step["results"])
         desk.now = step["now"]
         for event in step["events"]:
