@@ -186,3 +186,79 @@ Frontier recap (6 archived seeds): gate .15 + pm1.04 + fee model = EUR13,457 at 
 gate .30 hand = EUR13,723 at 95.37; shipped gate .20 hand = EUR13,695 at 96.4. Unseen-seed
 margin favours the simpler gate .20/.30 configs (EUR14.1-14.3k on vb), while the fee+pm config
 drops to EUR11.4-12.7k unseen; that is why the shipped defaults are the simpler set.
+
+## Root cause found: quote() routed to the fitted-menu path whenever a model was loaded
+
+Earlier attempts that loaded QuoteModel/OnlineCompetitor for selection (select_qm, comp_from_qm,
+lane_gate, net selection) all looked catastrophic (margin -5k to +4k, 45-123 expired gigs). The
+cause was in Dispatcher.quote(): it called _quote_model() whenever qm and oc were loaded, NOT only
+when Policy.use_quote_model was set. Every "model-loaded" experiment therefore silently ran the
+unvalidated fitted-menu pricing path. Fixed: the _quote_model path now requires use_quote_model=1.
+
+After the fix, re-running the same levers changes the picture completely:
+
+  comp_from_qm=1  (v7 prices but the competitor threshold is quote_model's online lane-aware
+                   estimate exp(log_comp_for(ctx, trust) + A_value(ctx, n_options)))
+  ev-1 15,784/96.7 -> 17,881/97.2 (+2,097/+0.5)
+  ev-2 13,537/96.1 -> 14,690/95.7 (+1,153/-0.4)
+  ev-4 19,334/95.5 -> 21,925/96.2 (+2,591/+0.7)
+
+That is the ~EUR0.65/quote lane-level lever from the competitor report, and it is the biggest
+margin change since post-at-win. Full six-seed validation running.
+
+Gently-selected net bar (fitted expected-net model, select_net=5 EUR):
+  ev-1 16,018/97.5 (+234/+0.8), ev-4 19,204/95.5 (-130/0.0) - small but non-negative.
+  select_net=15 was too aggressive after the routing fix (ev-1 11,945/99.2, ev-4 17,132/95.9:
+  margin cost larger than the punctuality gain); 5 or lower is the useful range.
+
+The fitted expected-net model (select_model.py) on 202k won orders / 589 worlds: OOF R2 0.412,
+MAE 21.2 (base 29.4), decile calibration excellent: bottom decile predicted -6.8 vs realised
+-15.7; top decile 80.7 vs 87.5. So it ranks orders well; used softly.
+
+## Lane-aware pricing (comp_from_qm) validated with no overrides
+
+Six archived seeds (gate 0.20, hand fee, price 1.0, conservative bundling, safe notes):
+  ev-1 17,881/97.2  ev-2 14,690/95.7  ev-3 10,188/97.6  ev-4 21,925/96.2
+  ev-5 14,191/95.1  ev-6 10,046/96.8
+  MEAN EUR14,820  mean on-time 96.43%  worst 95.1%  ranked 6/6
+(previous shipped defaults without lane-aware pricing: EUR13,695 / 96.42%. +EUR1,125 margin for
+same punctuality; this is the competitor report's ~EUR0.65/quote lane lever realised.)
+
+Six unseen seeds vb-1..6: MEAN EUR14,722 @95.16% (worst 88.8% on vb-2; the per-seed results are
+15,853/10,670/11,576/16,887/18,603/14,741). vs shipped defaults on the same panel EUR14,080/95.19:
+lane-aware pricing generalises on the unseen seeds too (+EUR642).
+
+Gate 0.15 on top: MEAN EUR14,462 / 96.55% (worst 95.8): costs EUR358 for +0.12 points - not the
+way to 97%. Direct offers on top: ev-4 21,768/95.6, ev-5 14,198/95.1 - neutral/worse, off.
+Fee floor at target 0.7/horizon 12 h was a no-op (the model never asks for a fee above 0.9 x ref
+at those targets); stronger targets are the thing to try if it is needed for punctuality.
+
+## Both targets reached on the archived panel: cqm + gate 0.15 + select_net=5
+
+  ev-1 17,059/98.4  ev-2 14,484/95.6  ev-3 9,568/97.8  ev-4 20,286/97.2
+  ev-5 15,396/96.0  ev-6 10,348/98.3
+  MEAN EUR14,524/week  mean on-time 97.22%  worst 95.6%  ranked 6/6   (expired gigs now 2-8/world)
+
+That is the first configuration to clear both mission thresholds on the calibrated panel
+(>= EUR14k and >97%). It is lane-aware pricing (comp_from_qm) + P(late) gate at 0.15 + a light
+fitted-net selection bar of EUR5. Generalisation check on vb/vc running now.
+
+## Shipped v9 configuration (both targets on the calibrated panel)
+
+  comp_from_qm=1 (lane-aware competitor threshold) + gate_pl=0.15 + select_net=5 + the rest of
+  the v8 defaults (post at win, conservative bundling, safe notes, fitted P(late) margin).
+
+Calibrated panel ev-1..6 (no overrides): 14,524 mean EUR/week, mean on-time 97.22%, worst 95.6%,
+all ranked. Per seed: ev-1 17,059/98.4; ev-2 14,484/95.6; ev-3 9,568/97.8; ev-4 20,286/97.2;
+ev-5 15,396/96.0; ev-6 10,348/98.3.
+
+Unseen panels with the same config: vb-1..6 13,072 mean / 96.52% (worst 91.1, all ranked);
+vc-1..4 12,519 mean / 97.04% (worst 96.3). All 16 worlds: 13,478 mean / 96.90%, 16/16 ranked.
+
+Frontier knobs measured today:
+  comp_from_qm=1 gate 0.20 select 0: ev 14,820/96.43, vb 14,722/95.16  (margin side of the trade)
+  comp_from_qm=1 gate 0.15 select 5: ev 14,524/97.22, vb 13,072/96.52, vc 12,519/97.04 (shipped)
+  middle settings do not interpolate: gate .18/select 4 on ev-1 16,613/95.9 and ev-4 21,136/95.6
+  (worse than both ends), gate .20/select 5 vb-2 8,021/89.1, gate .15/select 5 vb-2 7,701/91.1 -
+  the win/trust/driver-feedback dynamics are chaotically sensitive, so every candidate is re-run
+  on all six seeds before it is believed.

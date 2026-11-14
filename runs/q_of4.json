@@ -1,0 +1,159 @@
+{
+ "policy": {
+  "comp0": 1.37,
+  "slope": 8.7,
+  "comp_lr": 0.02,
+  "comp_lo": 1.22,
+  "comp_hi": 1.6,
+  "fee_open": 0.9,
+  "fee_steps": [
+   [
+    24,
+    1.05
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    10,
+    1.55
+   ],
+   [
+    6,
+    2.0
+   ]
+  ],
+  "hold_hours": 0.0,
+  "pair_enabled": 1.0,
+  "pair_wait": 20.0,
+  "bundle_base_ratio": 0.88,
+  "bundle_max_drive": 280.0,
+  "bundle_max_link": 35.0,
+  "bundle_min_lead_h": 3.0,
+  "bundle_max_dead_gap": 18.0,
+  "exp_fee": [
+   [
+    4,
+    2.0
+   ],
+   [
+    8,
+    1.55
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    30,
+    1.05
+   ],
+   [
+    1000000000.0,
+    0.95
+   ]
+  ],
+  "p_late": [
+   [
+    4,
+    0.6
+   ],
+   [
+    8,
+    0.3
+   ],
+   [
+    16,
+    0.12
+   ],
+   [
+    30,
+    0.06
+   ],
+   [
+    1000000000.0,
+    0.03
+   ]
+  ],
+  "late_cost": 0.45,
+  "late_shadow": 80.0,
+  "km_late": 0.0,
+  "sup_b": [
+   4.23,
+   -0.816,
+   -0.469,
+   -0.425
+  ],
+  "sup_base": 0.045,
+  "sup_fee": 0.6,
+  "max_km": 520.0,
+  "min_margin": 8.0,
+  "price_mult": 1.0,
+  "min_slack_h": 0.0,
+  "supply_gate": 2.0,
+  "rescue_h": 0.0,
+  "rescue_mult": 1.35,
+  "retry_raise": 0.0,
+  "drop_raise": 0.0,
+  "use_quote_model": 0.0,
+  "ev_bar": 0.0,
+  "select_qm": 0.0,
+  "select_net": 0.0,
+  "lane_gate": 0.0,
+  "comp_from_qm": 1.0,
+  "steer": 0.0,
+  "gate_pl": 0.2,
+  "gate_dynamic": 0.0,
+  "use_model_pl": 0.0,
+  "use_notes": 1.0,
+  "note_mode": 1.0,
+  "use_supply_model": 1.0,
+  "use_supply_fee": 0.0,
+  "use_fee_model": 0.0,
+  "fee_target": 0.85,
+  "fee_horizon": 8.0,
+  "fee_ratio_min": 0.75,
+  "fee_ratio_max": 1.6,
+  "fee_floor_target": 0.0,
+  "fee_floor_horizon": 12.0,
+  "gate_book": 0.0,
+  "offer_h": 12.0,
+  "offer_max_open": 3.0,
+  "offer_fee_ratio": 1.15,
+  "offer_radius_min": 120.0,
+  "sla_target": 0.94,
+  "sla_gain": 2.0,
+  "sla_prior_n": 120,
+  "decline_mult": 4.0
+ },
+ "results": [
+  {
+   "seed": "ev-4",
+   "world": "w51c858b2c24ba53bb016",
+   "secs": 64,
+   "comp": 1.302,
+   "pairs": 123,
+   "singles": 325,
+   "quoted": 825,
+   "declined": 211,
+   "won": 906,
+   "lost": 534,
+   "d_margin": 109,
+   "d_km": 102,
+   "offers": 1148,
+   "rebundles": 73,
+   "gated": 90,
+   "urgent": 45,
+   "expired": 18,
+   "refused": 1,
+   "marginCents": 2176849,
+   "revenueCents": 5679737,
+   "marginShare": 0.3832658096668913,
+   "wonOrders": 503,
+   "onTimeShare": 0.9562624254473161,
+   "undeliveredShare": 0.0019880715705765406,
+   "ranked": true
+  }
+ ]
+}

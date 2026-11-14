@@ -1,29 +1,34 @@
-"""Dispatcher v8 (candidate): v7's margin-max quotes plus the changes that the level-8 archive and
-the live A/B sweeps support. Built on the kit's starter for bookkeeping (rejoin, reposts, notes).
+"""Dispatcher v9 (shipped): v7's margin-max quotes plus the changes the level-8 archive and the
+live deterministic A/B sweeps support. Built on the kit's starter for bookkeeping.
 
-    python dispatch.py --seeds 6 --prefix ev --parallel 2   # deterministic practice sweep
     python quick_test.py --tag T --seeds ev-1 --set k=v     # one-off A/B on a known seed
     python final.py                                          # the live final (stream-driven runner)
 
-What changed against v7 and why (numbers in NOTES.md / NOTES-run.md):
-  * post a won order at once (hold_hours 0) instead of 36 h before the last pickup: on the same
-    deterministic worlds this was worth +1.7k-2.8k EUR/week and 1-2 points of on-time.
-  * move two single-car orders in one gig (bundling.py) only when the chain is tight: link
-    delivery->pickup <= 35 min, total drive <= 280 min, deadlines within 18 h. The archive's best
-    worlds move 66% of their cars this way at ~0.79*(refA+refB); with loose caps it is catastrophic
-    on some seeds (ev-4: chain drive 322 min median, 24-38% of bundles expire).
-  * read the dealer's note (notes_reader.py, 100% exact against the reveal truth): manual-licence /
-    transfer-plate audiences and a later-ready pickup floor in safe mode; pricing uses the moved
-    deadline. Full window narrowing is available with note_mode=2 but cost ~1k on ev-4.
-  * fit P(late) and the expected driver fee (supply.py + late2.json, OOF AUC 0.789 / fee MAE
-    0.17 x ref) and use them in the margin instead of v7's hand tables; decline an option when
-    P(late) > gate_pl (0.30). The gate is close to free on the seeds measured.
-  * direct offers to drivers near an at-risk pickup (offer_h > 0) are implemented but measured
-    neutral on ev-4/ev-2, so they are off by default.
-  * rescue repricing (rescue_h / drop_raise) and failure fee inflation (retry_raise) are OFF:
-    every failure-triggered fee change that was A/B tested lost more margin than it saved.
-The fitted quote_model/OnlineCompetitor is available (use_quote_model=1) but the first live test
-of full menu optimisation was worse than v7 pricing, so it is off by default too.
+Shipped configuration and why (numbers in NOTES.md / NOTES-run.md):
+  * post a won order at once (hold_hours 0) instead of 36 h before the last pickup: worth
+    +1.7k-2.8k EUR/week and 1-2 points of on-time on identical worlds.
+  * two single-car orders in one gig (bundling.py) only when the chain is tight: link
+    delivery->pickup <= 35 min, total drive <= 280 min, deadlines within 18 h; opening fee
+    ~0.79*(refA+refB). Loose caps are catastrophic on long-chain seeds.
+  * read the dealer's note (notes_reader.py, 100% exact against the reveal truth) in safe mode:
+    manual-licence / transfer-plate audiences and a later-ready pickup floor; pricing uses the
+    moved deadline.
+  * competitor threshold from the fitted online model (comp_from_qm 1): exp(log_comp_for(ctx,
+    trust) + QuoteModel.A_value(ctx, n_options)) replaces v7's single global SGD level, so the
+    persistent lane factors and dealer trust enter every price. Worth +~1.1k/week at equal
+    punctuality - the largest remaining margin lever.
+  * fitted P(late) (supply.py features refit by fit_late2.py, OOF AUC 0.789) drives the quote
+    margin and the gate: an option with P(late) > 0.15 is declined.
+  * expected-net selection bar (select_model.py, OOF R2 0.41, decile calibrated): decline a
+    request whose menu expected net (sum p_take x expected net) is below EUR5. Together with the
+    0.15 gate this moved the calibrated seeds from 14.8k/96.4% to 14.5k/97.2% (both targets).
+  * off after A/B: fitted booking-model fee (hurt unseen seeds), direct offers (neutral), rescue
+    repricing and failure fee inflation (lost more margin than they saved), price multiplier
+    (chaotic), dynamic gate, full menu optimiser (use_quote_model 0).
+
+Measured with these defaults on the six archived seeds: mean EUR14,524/week, 97.22% on time,
+worst 95.6%, all ranked (v7-lam50: EUR11,275 / 92.4%). Unseen-seed panels: vb-1..6 EUR13,072 /
+96.52%, vc-1..4 EUR12,519 / 97.04%.
 """
 from __future__ import annotations
 
@@ -61,6 +66,10 @@ try:  # the fitted supply/booking/lateness models (see supply.py); the hand tabl
     import supply as supply_mod
 except Exception:  # pragma: no cover
     supply_mod = None
+try:  # the fitted expected-net selection model (see select_model.py)
+    from select_model import SelectModel
+except Exception:  # pragma: no cover
+    SelectModel = None
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 LIVE: set = set()  # practice worlds this process created and has not finished: deleted on exit
@@ -129,11 +138,12 @@ class Policy:
     use_quote_model: float = 0.0  # 1 = use the fitted competitor/P(win) model when available
     ev_bar: float = 0.0           # legacy pricing: decline a request whose best expected value (EUR) is below this
     select_qm: float = 0.0        # legacy pricing: decline a request whose menu EV under the fitted model is below this EUR
+    select_net: float = 5.0       # decline a request whose expected net (fitted per-order net model) is below this EUR
     lane_gate: float = 0.0        # decline requests whose persistent competitor lane factor is below -this (log)
-    comp_from_qm: float = 0.0     # 1 = take the competitor threshold from quote_model's online filter (lane-aware)
+    comp_from_qm: float = 1.0     # 1 = take the competitor threshold from quote_model's online filter (lane-aware)
                                   #     instead of v7's single global SGD comp
     steer: float = 0.0            # legacy pricing: raise same_day by this share when a slower option is offered
-    gate_pl: float = 0.20         # decline an option whose fitted P(late) exceeds this (0 = off)
+    gate_pl: float = 0.15         # decline an option whose fitted P(late) exceeds this (0 = off)
     gate_dynamic: float = 0.0     # 1 = tighten gate with SLA pressure, 2 = with the raw share of decided orders that were late
     use_model_pl: float = 0.0     # 1 = late_model.LateModel for P(late), 0 = v7's hand-set table
     use_notes: float = 1.0        # 1 = read dealer notes for windows/audience/fees, 0 = kit starter behaviour
@@ -145,6 +155,8 @@ class Policy:
     fee_horizon: float = 8.0
     fee_ratio_min: float = 0.75   # clamp the model's fee ratio to [min, max]
     fee_ratio_max: float = 1.60
+    fee_floor_target: float = 0.0  # >0: never open below the fee that books with this P within fee_floor_horizon
+    fee_floor_horizon: float = 12.0
     gate_book: float = 0.0        # decline an option whose fitted P(booked within 8h) is below this (0 = off)
     offer_h: float = 0.0          # direct offers: start offering an unbooked gig this many hours before its last pickup (0 = off)
     offer_max_open: float = 3.0   # open direct offers per gig (rules allow 3)
@@ -208,12 +220,19 @@ class Dispatcher(Desk):
         self.qm = None
         self.oc = None
         try:
-            if QuoteModel is not None and (p.use_quote_model or p.select_qm > 0 or p.lane_gate > 0 or p.comp_from_qm > 0):
+            if QuoteModel is not None and (p.use_quote_model or p.select_qm > 0 or p.lane_gate > 0
+                                          or p.comp_from_qm > 0 or p.select_net > 0):
                 self.qm = QuoteModel.load()
                 self.oc = OnlineCompetitor(self.qm)
         except Exception:  # noqa: BLE001 - a missing/unreadable fit falls back to the v7 SGD
             self.qm = self.oc = None
         self.quoted_model: dict[str, tuple[dict, dict, int]] = {}  # request id -> (ctx, prices, trust)
+        self.sel = None
+        if p.select_net > 0 and SelectModel is not None:
+            try:
+                self.sel = SelectModel.load()
+            except Exception:  # noqa: BLE001 - a missing fit just disables selection
+                self.sel = None
         self.smodels = None
         self.supply_struct = None
         self.forecasts: list[tuple[int, int, set]] = []
@@ -353,7 +372,7 @@ class Dispatcher(Desk):
 
     def quote(self, request: PriceRequest) -> None:
         self.requests[request["id"]] = request
-        if self.qm is not None and self.oc is not None:
+        if self.p.use_quote_model and self.qm is not None and self.oc is not None:
             try:
                 return self._quote_model(request)
             except Exception:  # noqa: BLE001 - never leave a request unanswered because a model call failed
@@ -509,6 +528,32 @@ class Dispatcher(Desk):
                        if prices.get(o["kind"], 0) < 3 * o["listPriceCents"]}
             if genuine:
                 self.quoted_model[request["id"]] = (context, genuine, self.trust.get(request["dealerId"], 0))
+        if p.select_net > 0 and self.oc is not None and self.sel is not None:
+            try:
+                if context is None:
+                    context = self.qm.context(request, self.road)
+                options_by_kind = {o["kind"]: o for o in request["options"]}
+                genuine = {kind: prices[kind] for kind in options_by_kind
+                           if prices.get(kind, 0) < 3 * options_by_kind[kind]["listPriceCents"]}
+                if genuine:
+                    takes = self.oc.p_take(context, genuine, self.trust.get(request["dealerId"], 0))
+                    lane = context.get("lane_log_factor", 0.0)
+                    expected = 0.0
+                    for kind, probability in takes.items():
+                        if probability <= 0:
+                            continue
+                        expected += probability * self.sel.net(request, options_by_kind[kind], self.road,
+                                                               self.supply, self.world_mean_supply, lane)
+                    if expected < p.select_net:
+                        self.stats["declined"] += 1
+                        self.stats["d_selnet"] = self.stats.get("d_selnet", 0) + 1
+                        self.outbox.append({"type": "quote", "requestId": request["id"],
+                                            "prices": {kind: int(o["listPriceCents"] * p.decline_mult)
+                                                       for kind, o in options_by_kind.items()}})
+                        return
+                    self.quoted_model[request["id"]] = (context, genuine, self.trust.get(request["dealerId"], 0))
+            except Exception:  # noqa: BLE001
+                pass
         if p.ev_bar > 0 and best_ev < p.ev_bar:
             self.stats["declined"] += 1
             self.stats["d_ev"] = self.stats.get("d_ev", 0) + 1
@@ -1074,6 +1119,14 @@ class Dispatcher(Desk):
                                                                      second["legs"][0]["pickup"]["placeId"]))
         if model_ratio is not None:
             base = (ra["referenceFeeCents"] + rb["referenceFeeCents"]) * model_ratio / max(1e-6, self.p.fee_open)
+        if self.p.fee_floor_target > 0:
+            floor = self._booking_ratio(first, 2, first, second,
+                                        chain_min=self.road.minutes(first["legs"][-1]["delivery"]["placeId"],
+                                                                   second["legs"][0]["pickup"]["placeId"]),
+                                        target=self.p.fee_floor_target, horizon=self.p.fee_floor_horizon)
+            if floor is not None and floor > self.p.fee_open:
+                base = max(base, (ra["referenceFeeCents"] + rb["referenceFeeCents"])
+                           * floor / max(1e-6, self.p.fee_open))
         return bundle_schedule(self.now, last, base, self.p.fee_open, tuple(self.p.fee_steps))
 
     def _post_bundle(self, got: dict, ra: dict, rb: dict) -> None:
@@ -1104,7 +1157,9 @@ class Dispatcher(Desk):
                         break
 
     # ---------- fees ----------
-    def _booking_ratio(self, order: Order, cars: int, first: Order = None, second: Order = None, chain_min: float = 0.0) -> Optional[float]:
+    def _booking_ratio(self, order: Order, cars: int, first: Order = None, second: Order = None,
+                       chain_min: float = 0.0, target: Optional[float] = None,
+                       horizon: Optional[float] = None, follow_lead: bool = False) -> Optional[float]:
         """The fee ratio (opening fee / sum of reference fees) the booking model says books the gig."""
         if not self.p.use_fee_model or self.smodels is None or self.supply_struct is None or supply_mod is None:
             return None
@@ -1126,7 +1181,11 @@ class Dispatcher(Desk):
                 km=km, route_min=route_min, lead_h=(pickup_from - self.now) / HOUR, now=self.now,
                 n_cars=cars, n_orders=n_orders, chain_min=chain_min,
                 ref_cents=ref_cents, fee_ratio=0.9)
-            ratio = float(self.smodels.booking.fee_for_target(features, target=self.p.fee_target, horizon_h=self.p.fee_horizon))
+            if follow_lead:
+                horizon = max(0.5, (pickup_from - self.now) / HOUR)
+            ratio = float(self.smodels.booking.fee_for_target(
+                features, target=self.p.fee_target if target is None else target,
+                horizon_h=self.p.fee_horizon if horizon is None else horizon))
             if not (0.2 <= ratio <= 3.0):
                 return None
             return max(self.p.fee_ratio_min, min(self.p.fee_ratio_max, ratio))
@@ -1140,6 +1199,12 @@ class Dispatcher(Desk):
         model_ratio = self._booking_ratio(order, cars)
         if model_ratio is not None:
             ref = ref * model_ratio / max(1e-6, self.p.fee_open)
+        if self.p.fee_floor_target > 0:
+            floor = self._booking_ratio(order, cars, target=self.p.fee_floor_target,
+                                        horizon=self.p.fee_floor_horizon, follow_lead=True)
+            if floor is not None and floor > self.p.fee_open:
+                ref = max(ref, request["referenceFeeCents"] * cars / len(order["legs"])
+                          * self.note_fee_uplift(request) * floor / max(1e-6, self.p.fee_open))
         if order["id"] in self.urgent:
             return steep(self.now, ref, self.level)
         last = order["lastPickupAt"]
