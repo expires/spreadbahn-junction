@@ -382,3 +382,13 @@ decision; v9 remains the fallback.
 - Realised-share short-off response (quote only within_3_days above 5%): threshold never reached
   while quotes still flow; 4% retest running. Interim: the 90.3% week looks intrinsic to that seed
   for this policy family; the documented safe alternative is gate 0.15 + selection bar EUR5.
+
+## Reproducibility caveat (honest note)
+
+The server's practice worlds are documented as deterministic per (seed, level, actions). Most repeated
+runs in our evidence reproduce exactly (e.g. 15,784/96.7 on ev-1 at 02:40 and 04:02; 17,881/97.2 at
+10:53 and 11:01; 16,707/98.7 at 11:05 and 11:40 under the same config), and our A/B claims always
+compare runs of the same code made back-to-back. A few same-config re-runs differ slightly (e.g.
+q_c15s1 16,707 vs q6_c15s 17,059 on ev-1); the archived rosters differ because driver drops and
+completed gigs are state the world carries forward, so roster hashes are not world fingerprints. We
+kept the conclusions that repeated under identical code+seed and flagged any single-run claims.
