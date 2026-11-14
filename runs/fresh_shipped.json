@@ -1,0 +1,281 @@
+{
+ "policy": {
+  "comp0": 1.37,
+  "slope": 8.7,
+  "comp_lr": 0.02,
+  "comp_lo": 1.22,
+  "comp_hi": 1.6,
+  "fee_open": 0.9,
+  "fee_steps": [
+   [
+    24,
+    1.05
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    10,
+    1.55
+   ],
+   [
+    6,
+    2.0
+   ]
+  ],
+  "hold_hours": 0.0,
+  "pair_enabled": 1.0,
+  "pair_wait": 20.0,
+  "bundle_base_ratio": 0.88,
+  "bundle_max_drive": 280.0,
+  "bundle_max_link": 35.0,
+  "bundle_min_lead_h": 3.0,
+  "bundle_max_dead_gap": 18.0,
+  "exp_fee": [
+   [
+    4,
+    2.0
+   ],
+   [
+    8,
+    1.55
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    30,
+    1.05
+   ],
+   [
+    1000000000.0,
+    0.95
+   ]
+  ],
+  "p_late": [
+   [
+    4,
+    0.6
+   ],
+   [
+    8,
+    0.3
+   ],
+   [
+    16,
+    0.12
+   ],
+   [
+    30,
+    0.06
+   ],
+   [
+    1000000000.0,
+    0.03
+   ]
+  ],
+  "late_cost": 0.45,
+  "late_shadow": 80.0,
+  "km_late": 0.0,
+  "sup_b": [
+   4.23,
+   -0.816,
+   -0.469,
+   -0.425
+  ],
+  "sup_base": 0.045,
+  "sup_fee": 0.6,
+  "max_km": 520.0,
+  "min_margin": 8.0,
+  "price_mult": 1.04,
+  "min_slack_h": 0.0,
+  "supply_gate": 2.0,
+  "rescue_h": 0.0,
+  "rescue_mult": 1.35,
+  "retry_raise": 0.0,
+  "drop_raise": 0.0,
+  "use_quote_model": 0.0,
+  "ev_bar": 0.0,
+  "select_qm": 0.0,
+  "lane_gate": 0.0,
+  "comp_from_qm": 0.0,
+  "steer": 0.0,
+  "gate_pl": 0.15,
+  "use_model_pl": 0.0,
+  "use_notes": 1.0,
+  "note_mode": 1.0,
+  "use_supply_model": 1.0,
+  "use_supply_fee": 0.0,
+  "use_fee_model": 1.0,
+  "fee_target": 0.85,
+  "fee_horizon": 8.0,
+  "fee_ratio_min": 0.75,
+  "fee_ratio_max": 1.6,
+  "gate_book": 0.0,
+  "offer_h": 0.0,
+  "offer_max_open": 3.0,
+  "offer_fee_ratio": 1.0,
+  "offer_radius_min": 90.0,
+  "sla_target": 0.94,
+  "sla_gain": 2.0,
+  "sla_prior_n": 120,
+  "decline_mult": 4.0
+ },
+ "results": [
+  {
+   "seed": "vb-1",
+   "world": "w7883ad100497b18b6b3d",
+   "secs": 61,
+   "comp": 1.564,
+   "pairs": 91,
+   "singles": 225,
+   "quoted": 806,
+   "declined": 233,
+   "won": 286,
+   "lost": 331,
+   "d_km": 109,
+   "rebundles": 45,
+   "gated": 113,
+   "d_margin": 124,
+   "urgent": 14,
+   "expired": 7,
+   "refused": 1,
+   "marginCents": 1331271,
+   "revenueCents": 3778053,
+   "marginShare": 0.35236959354461145,
+   "wonOrders": 361,
+   "onTimeShare": 0.9584487534626038,
+   "undeliveredShare": 0.002770083102493075,
+   "ranked": true
+  },
+  {
+   "seed": "vb-2",
+   "world": "w5abf4af2388d99a4a67c",
+   "secs": 61,
+   "comp": 1.514,
+   "pairs": 84,
+   "singles": 213,
+   "quoted": 865,
+   "declined": 175,
+   "won": 295,
+   "lost": 378,
+   "d_km": 111,
+   "d_margin": 63,
+   "rebundles": 54,
+   "gated": 46,
+   "urgent": 46,
+   "expired": 20,
+   "d_bar": 1,
+   "refused": 2,
+   "marginCents": 873424,
+   "revenueCents": 3372343,
+   "marginShare": 0.2589961934477009,
+   "wonOrders": 331,
+   "onTimeShare": 0.9093655589123867,
+   "undeliveredShare": 0.006042296072507553,
+   "ranked": true
+  },
+  {
+   "seed": "vb-3",
+   "world": "w3939aae0f85abfcc5842",
+   "secs": 53,
+   "comp": 1.334,
+   "pairs": 89,
+   "singles": 198,
+   "quoted": 823,
+   "declined": 215,
+   "won": 299,
+   "lost": 384,
+   "d_km": 163,
+   "rebundles": 41,
+   "d_margin": 52,
+   "gated": 35,
+   "urgent": 6,
+   "expired": 2,
+   "marginCents": 1048243,
+   "revenueCents": 3050405,
+   "marginShare": 0.3436405985434721,
+   "wonOrders": 341,
+   "onTimeShare": 0.9472140762463344,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "vb-4",
+   "world": "w87dde10eabcf43c65b5f",
+   "secs": 54,
+   "comp": 1.384,
+   "pairs": 92,
+   "singles": 225,
+   "quoted": 845,
+   "declined": 195,
+   "won": 327,
+   "lost": 387,
+   "d_km": 116,
+   "d_margin": 79,
+   "rebundles": 49,
+   "gated": 52,
+   "urgent": 5,
+   "expired": 2,
+   "marginCents": 1373512,
+   "revenueCents": 3539229,
+   "marginShare": 0.38808226311436755,
+   "wonOrders": 364,
+   "onTimeShare": 0.9807692307692307,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "vb-5",
+   "world": "w2df5f8c4edbd31b58cda",
+   "secs": 55,
+   "comp": 1.497,
+   "pairs": 95,
+   "singles": 244,
+   "quoted": 866,
+   "declined": 170,
+   "won": 335,
+   "lost": 377,
+   "d_km": 136,
+   "rebundles": 47,
+   "gated": 18,
+   "d_margin": 34,
+   "urgent": 11,
+   "expired": 5,
+   "marginCents": 1748840,
+   "revenueCents": 4205019,
+   "marginShare": 0.4158934834777203,
+   "wonOrders": 384,
+   "onTimeShare": 0.9713541666666666,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "vb-6",
+   "world": "w7d8271653bf482351a7f",
+   "secs": 57,
+   "comp": 1.535,
+   "pairs": 88,
+   "singles": 234,
+   "quoted": 908,
+   "declined": 122,
+   "won": 332,
+   "lost": 408,
+   "rebundles": 39,
+   "d_km": 89,
+   "urgent": 6,
+   "expired": 4,
+   "gated": 20,
+   "d_margin": 33,
+   "marginCents": 1229830,
+   "revenueCents": 3924842,
+   "marginShare": 0.31334509771348756,
+   "wonOrders": 372,
+   "onTimeShare": 0.9650537634408602,
+   "undeliveredShare": 0,
+   "ranked": true
+  }
+ ]
+}

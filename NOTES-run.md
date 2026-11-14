@@ -155,3 +155,34 @@ q6_pm4fee on BOTH axes (chaotic sensitivity on ev-2/ev-5/ev-6), so the shipped d
 
     six archived seeds:  mean EUR13,457/week   mean on-time 97.48%  worst 96.6%  ranked 6/6
     v7-lam50 reference:  mean EUR11,275/week   mean on-time 92.4%
+
+## Generalisation check on six unseen seeds (vb-1..vb-6)
+
+The ev panel was used to tune, so every serious candidate is re-run on seeds never used for a
+decision. Results (mean margin / mean on-time / worst on-time):
+
+    v7-lam50 (4 of the seeds)      EUR11,418 / 91.3% / 82.1%
+    shipped (gate .15 pm1.04 fee)  EUR12,675 / 95.5% / 90.9%
+    v8b      (gate .30 pm1.00 hand) EUR14,316 / 94.5% / 87.4%   <- best margin, one unranked seed
+    pm8      (gate .15 pm1.08 hand) (running)
+
+So the margin gain from the ev-tuned constants does not fully generalise: on the unseen seeds the
+simpler, less aggressive v8b (gate 0.30, no fee model, no price multiplier) makes ~EUR1.6k/week
+more than the shipped ev-tuned set, at ~1 point less on-time and with more ranking risk. Gate 0.20
+variants are being measured now to find the knee. This is the main open decision.
+
+## Shipped configuration verified with no overrides (g20 family)
+
+quick_test.py --seeds ev-1..ev-6 with shipped defaults (gate 0.20, hand fee, price 1.0,
+conservative bundling, safe notes, hold 0, supply P(late)):
+
+  ev-1 15,784/96.7  ev-2 13,537/96.1  ev-3 9,328/97.1  ev-4 19,334/95.5
+  ev-5 14,801/96.8  ev-6 9,383/96.2   MEAN EUR13,695  mean ot 96.4%  worst 95.5%  ranked 6/6
+
+Unseen panels with the same defaults: vb-1..6 EUR14,080/95.2% (worst 89.1), vc-1..4
+EUR12,467/95.2% (worst 92.7). Across 16 worlds: EUR13,532 mean, 95.7% on time, 15/16 ranked.
+
+Frontier recap (6 archived seeds): gate .15 + pm1.04 + fee model = EUR13,457 at 97.48%;
+gate .30 hand = EUR13,723 at 95.37; shipped gate .20 hand = EUR13,695 at 96.4. Unseen-seed
+margin favours the simpler gate .20/.30 configs (EUR14.1-14.3k on vb), while the fee+pm config
+drops to EUR11.4-12.7k unseen; that is why the shipped defaults are the simpler set.

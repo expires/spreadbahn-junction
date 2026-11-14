@@ -118,7 +118,7 @@ class Policy:
     max_km: float = 520.0        # decline longer lanes
     min_margin: float = 8.0      # euros of expected margin to quote an option at all
     # v8 experiment hooks (A/B sweeps): price multiplier, hard gates.
-    price_mult: float = 1.04     # scale every quoted price by this (selectivity lever)
+    price_mult: float = 1.0      # scale every quoted price by this (selectivity lever)
     min_slack_h: float = 0.0     # decline an option whose slack to the deadline is below this
     supply_gate: float = 2.0     # decline an option whose supply-model P(late) exceeds this (2 = off)
     # SLA controller.
@@ -133,13 +133,14 @@ class Policy:
     comp_from_qm: float = 0.0     # 1 = take the competitor threshold from quote_model's online filter (lane-aware)
                                   #     instead of v7's single global SGD comp
     steer: float = 0.0            # legacy pricing: raise same_day by this share when a slower option is offered
-    gate_pl: float = 0.15         # decline an option whose fitted P(late) exceeds this (0 = off)
+    gate_pl: float = 0.20         # decline an option whose fitted P(late) exceeds this (0 = off)
+    gate_dynamic: float = 0.0     # 1 = tighten gate with SLA pressure, 2 = with the raw share of decided orders that were late
     use_model_pl: float = 0.0     # 1 = late_model.LateModel for P(late), 0 = v7's hand-set table
     use_notes: float = 1.0        # 1 = read dealer notes for windows/audience/fees, 0 = kit starter behaviour
     note_mode: float = 1.0        # 1 = safe use (audience + pickup floor only), 2 = also delivery ceilings and opening hours
     use_supply_model: float = 1.0  # 1 = supply.py P(late) in the quote margin and gate (see use_supply_fee)
     use_supply_fee: float = 0.0   # 1 = also use the fitted expected driver fee; 0 = keep v7's hand fee formula
-    use_fee_model: float = 1.0    # 1 = set the opening fee from supply.booking.fee_for_target instead of 0.9 x ref
+    use_fee_model: float = 0.0    # 1 = set the opening fee from supply.booking.fee_for_target instead of 0.9 x ref
     fee_target: float = 0.85      # target P(booked within fee_horizon) for the fee model
     fee_horizon: float = 8.0
     fee_ratio_min: float = 0.75   # clamp the model's fee ratio to [min, max]
@@ -242,6 +243,21 @@ class Dispatcher(Desk):
                 at_risk += 0.8 if o["id"] in self.urgent else 0.3 if left < 4 else 0.0
         projected = (late_now + at_risk) / n
         return projected - (1 - self.p.sla_target)
+
+    def late_stats(self) -> tuple[int, int]:
+        """(late, decided) over the orders we have already settled: the ranking-risk signal."""
+        late = decided = 0
+        for order in self.orders.values():
+            if order["status"] == "cancelled":
+                continue
+            delivered = order["deliveredAt"]
+            done = all(t is not None for t in delivered)
+            if not done and self.now <= order["deadline"]:
+                continue
+            decided += 1
+            if any(t is None or t > order["deadline"] for t in delivered):
+                late += 1
+        return late, decided
 
     def has_driver(self, order_id: str) -> bool:
         gigs = self.gigs_of(order_id)
@@ -436,7 +452,13 @@ class Dispatcher(Desk):
                     pl = float(self.late.p_late(row))
                 except Exception:  # noqa: BLE001
                     pl = pl_hand
-            gated_late = bool(p.gate_pl > 0 and pl > p.gate_pl)
+            gate_now = p.gate_pl * (1.0 + p.gate_dynamic * p.sla_gain * pressure * 10)
+            if p.gate_dynamic >= 2:
+                late_n, decided_n = self.late_stats()
+                if decided_n >= 20:
+                    share = late_n / decided_n
+                    gate_now = p.gate_pl * (1.0 + max(0.0, share - (1.0 - p.sla_target)) * 40.0)
+            gated_late = bool(gate_now > 0 and pl > gate_now)
             if gated_late:
                 gated_any = True
             cost_of[o["kind"]] = (fee, pl)
