@@ -104,6 +104,7 @@ class Policy:
     mid_fee_scale: float = 0.88  # levels 4-6
     regime: bool = True          # Bayesian day level + price-war mixture + outage detection (regime.py)
     price_slope: float = 10.5    # dealer price slope used with the regime learner
+    regime_sd0: float = 0.07     # prior sd of the competitor's log level: wider = learns a cheap/dear week faster
     dealer_fx: bool = False      # add persistent per-dealer price effects (tested: −€229, off)
     lanes_v9: bool = False       # the v9 branch's per-lane competitor factors (798 lanes; tested: +€41, off)
     late_v9: bool = True         # P(late) from the v9 branch's archive-fitted model (74,731 orders, OOF AUC 0.79)
@@ -175,7 +176,7 @@ class Dispatcher(Desk):
         # The competitor's price level by level, from the rules: near list up to 6, 1.12-1.38 at 7, 1.26-1.54 at 8.
         self.comp_lo, self.comp_hi, comp0 = {7: (1.05, 1.45, 1.25), 8: (policy.comp_lo, policy.comp_hi, policy.comp0)}.get(level, (0.85, 1.2, 1.0))
         self.log_comp = math.log(comp0)
-        self.regime = Regime(road.places, level0=math.log(comp0), first_day=now // DAY) \
+        self.regime = Regime(road.places, level0=math.log(comp0), first_day=now // DAY, sd_level0=policy.regime_sd0) \
             if policy.regime and level >= 8 and road.places else None
         self.lanes = json.load(open(os.path.join(ROOT, "configs", "lane_effects.json"))) if policy.lanes else None
         self.lanes9 = json.load(open(os.path.join(ROOT, "configs", "lane_effects_v9.json"))) if policy.lanes_v9 else None
