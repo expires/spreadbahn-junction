@@ -1,0 +1,30 @@
+dispatch backend: /Users/lewissimpson/My Small Bets/Spacing problem Bahn/.worktrees/deepseek-skdnfakldsfb/dispatch.py (Dispatcher + Policy built at level 8)
+testing final.py on 5 of 900 archived level-8 worlds:
+  ship_m30-ev-4  margin EUR     23,764   511 won   4 cancelled   515 orders   492 gigs  events     251 KiB
+  w1024d74f54f055dcb8d1  margin EUR    -72,613   949 won  10 cancelled   959 orders  1592 gigs  events   1,396 KiB
+  w216599d6648cf00be26d  margin EUR      6,135   530 won  11 cancelled   541 orders   689 gigs  events     549 KiB
+  w67c7689c36ba979979d7  margin EUR    -30,185   527 won   9 cancelled   536 orders   798 gigs  events     508 KiB
+  wd500efb66467aa794dfe  margin EUR    -27,165   545 won   1 cancelled   546 orders   686 gigs  events     342 KiB
+
+[1/5] ship_m30-ev-4  margin EUR 23,764  19156 events  515 orders  764 drivers
+restored dealer trust for 39 dealers (510 settled orders)
+PASS  replay: no handler raised
+PASS  replay: every price request quoted
+PASS  replay: quotes inside the 15-minute window
+PASS  replay: held-order timers fired
+PASS  replay: no undelivered order without a gig
+PASS  replay: no timer left at the end
+PASS  rejoin: Desk.rejoin did not raise
+PASS  rejoin: orders match the snapshot
+PASS  rejoin: same orders as the replay
+PASS  rejoin: deliveredAt matches the snapshot
+PASS  rejoin: every live gig carried
+PASS  rejoin: every undelivered order carried or posted
+PASS  rejoin: price requests restored
+PASS  rejoin: deadline warnings restored
+PASS  rejoin: dealer trust rebuilt from the ledger
+PASS  rejoin: settled orders restored
+PASS  rejoin: still handles a later event
+  world ship_m30-ev-4: PASS  (replay 25.44s, rejoin 0.01s)
+
+[2/5] w1024d74f54f055dcb8d1  margin EUR -72,613  179047 events  959 orders  832 drivers

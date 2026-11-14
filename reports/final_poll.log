@@ -1,0 +1,79 @@
+13:42:11 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:42:26 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:42:41 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:42:56 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:43:11 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:43:27 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:43:42 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:43:57 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:44:12 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:44:27 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:44:42 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:44:57 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:45:12 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:45:27 -> HTTP 404 {"error":"No final is scheduled for this team"}
+13:45:42 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:45:58 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:46:13 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:46:28 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:46:43 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:46:58 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:47:14 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:47:29 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:47:44 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:47:59 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:48:14 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:48:29 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:48:44 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:48:59 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:49:14 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:49:30 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:49:45 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:50:00 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:50:15 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:50:30 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:50:45 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:51:00 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:51:15 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:51:31 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:51:46 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:52:01 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:52:16 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:52:31 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:52:46 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:53:01 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:53:16 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:53:31 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:53:46 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:54:02 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:54:17 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:54:32 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:54:47 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:55:02 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:55:17 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:55:32 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:55:47 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:56:03 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:56:18 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:56:33 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:56:48 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:57:03 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:57:18 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:57:33 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:57:49 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:58:04 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:58:19 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:58:34 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:58:49 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:59:04 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:59:19 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:59:34 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+13:59:49 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4320}
+14:00:04 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4420}
+14:00:20 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4687}
+14:00:35 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4737}
+14:00:50 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4788}
+14:01:05 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4838}
+14:01:20 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4889}
+14:01:35 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4939}
+14:01:50 -> 200 {"worldId":"fadb6cd2bc34303e35ce8","startsAt":"2026-11-14T12:00:00.000Z","now":4989}

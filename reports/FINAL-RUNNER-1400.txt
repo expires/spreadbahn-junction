@@ -1,0 +1,9 @@
+FINAL RUNNER LOCK — 14:00 Helsinki test final
+
+Runner:  frozen v9 final.py @ bdff163 (shipped defaults, no --set)
+Started: 2026-11-14 13:48:51 EET
+PID:     6599
+World:   fadb6cd2bc34303e35ce8 (level 8, test final, starts 14:00 EET)
+Log:     reports/final_1400.log
+
+Do NOT start main's --final or a second v9 final.py. One runner owns this world.

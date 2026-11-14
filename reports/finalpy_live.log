@@ -1,0 +1,8 @@
+final runner: 2026-11-14 13:37:23 starting; no world is created, advanced or deleted
+server https://spread.bahnexpress.com
+map: 30 places, 900 roads
+dispatch backend: /Users/lewissimpson/My Small Bets/Spacing problem Bahn/.worktrees/deepseek-skdnfakldsfb/dispatch.py (Dispatcher + Policy built at level 8)
+pre-flight: PASS, dispatch.py answered a synthetic price request: {'next_day': 80000}
+no final is set yet (GET /v1/final answers 404). The organisers set it before the start; waiting, status every 10s.
+interrupted
+Stopped before any final was played; nothing was created or deleted.

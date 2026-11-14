@@ -1,0 +1,44 @@
+final runner: 2026-11-14 13:48:51 starting; no world is created, advanced or deleted
+server https://spread.bahnexpress.com
+map: 30 places, 900 roads
+dispatch backend: /Users/lewissimpson/My Small Bets/Spacing problem Bahn/.worktrees/deepseek-skdnfakldsfb/dispatch.py (Dispatcher + Policy built at level 8)
+pre-flight: PASS, dispatch.py answered a synthetic price request: {'next_day': 80000}
+final world fadb6cd2bc34303e35ce8 is set: startsAt 2026-11-14T12:00:00.000Z (starts in 11.1 min); world now Thu 00:00 (minute 4320) of Wed 22:00; level 8
+heartbeat ? minute None  seq -1  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 0.0 min
+restored dealer trust for 0 dealers (0 settled orders)
+books rebuilt: Thu 00:00 (minute 4320), 0 orders, 0 actions sent, seq 1228, rebuilds 0
+playing final world fadb6cd2bc34303e35ce8 from Thu 00:00 to Wed 22:00 at level 8; watching the stream from seq 1228
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 0.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 1.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 2.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 3.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 4.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 5.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 6.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 7.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 8.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 9.0 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 10.1 min
+heartbeat Thu 00:00 minute 4320  seq 1228  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 0  dropped 0  rebuilds 0  errors 0  timers 0  up 11.1 min
+heartbeat Thu 08:06 minute 4806  seq 1229  margin €0.00  0 orders  100.0% on time  0.0% not delivered  NOT YET RANKED  sent 1  dropped 0  rebuilds 0  errors 0  timers 0  up 12.1 min
+heartbeat Thu 11:27 minute 5007  seq 1501  margin €0.00  14 orders  100.0% on time  0.0% not delivered  ranked  sent 90  dropped 0  rebuilds 0  errors 0  timers 0  up 13.1 min
+heartbeat Thu 14:48 minute 5208  seq 1792  margin €19.82  23 orders  100.0% on time  0.0% not delivered  ranked  sent 178  dropped 0  rebuilds 0  errors 0  timers 0  up 14.1 min
+heartbeat Thu 18:08 minute 5408  seq 2147  margin €19.82  36 orders  100.0% on time  0.0% not delivered  ranked  sent 262  dropped 0  rebuilds 0  errors 0  timers 0  up 15.1 min
+heartbeat Thu 21:29 minute 5609  seq 2231  margin €31.34  37 orders  100.0% on time  0.0% not delivered  ranked  sent 270  dropped 0  rebuilds 0  errors 0  timers 0  up 16.1 min
+heartbeat Fri 07:31 minute 6211  seq 2265  margin €31.34  37 orders  100.0% on time  0.0% not delivered  ranked  sent 270  dropped 0  rebuilds 0  errors 0  timers 0  up 17.1 min
+heartbeat Fri 10:52 minute 6412  seq 2405  margin €171.02  40 orders  100.0% on time  0.0% not delivered  ranked  sent 312  dropped 0  rebuilds 0  errors 0  timers 0  up 18.1 min
+heartbeat Fri 14:13 minute 6613  seq 2635  margin €481.61  45 orders  100.0% on time  0.0% not delivered  ranked  sent 380  dropped 0  rebuilds 0  errors 0  timers 0  up 19.1 min
+heartbeat Fri 17:34 minute 6814  seq 3254  margin €985.34  74 orders  100.0% on time  0.0% not delivered  ranked  sent 479  dropped 0  rebuilds 0  errors 0  timers 0  up 20.1 min
+heartbeat Fri 20:54 minute 7014  seq 3596  margin €1,081.59  78 orders  100.0% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 21.1 min
+heartbeat Sat 08:45 minute 7725  seq 3672  margin €1,033.44  78 orders  100.0% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 22.1 min
+heartbeat Sat 18:50 minute 8330  seq 3727  margin €1,177.96  78 orders  100.0% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 23.1 min
+heartbeat Sun 11:46 minute 9346  seq 3754  margin €1,177.96  78 orders  100.0% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 24.1 min
+heartbeat Mon 06:38 minute 10478  seq 3822  margin €1,177.96  77 orders  100.0% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 25.1 min
+heartbeat Mon 13:19 minute 10879  seq 3898  margin €1,451.28  77 orders  100.0% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 26.1 min
+heartbeat Mon 20:01 minute 11281  seq 3928  margin €1,621.08  77 orders  98.7% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 27.1 min
+heartbeat Tue 12:07 minute 12247  seq 3928  margin €1,621.08  77 orders  98.7% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 28.1 min
+heartbeat Wed 08:11 minute 13451  seq 3928  margin €1,621.08  77 orders  98.7% on time  0.0% not delivered  ranked  sent 495  dropped 0  rebuilds 0  errors 0  timers 0  up 29.1 min
+the world has ended
+End        margin €   1,621.08  revenue €   5,770.64    77 orders   98.7% on time   0.0% not delivered
+Ranked: the delivery minimum is met.
+week played: 495 actions sent, 0 repeated events dropped, 0 rebuilds, 0 handler errors, 0 safety quotes, 0 held-order timers fired, 29.8 min up
