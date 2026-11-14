@@ -345,7 +345,16 @@ def cmd_run(a) -> None:
         hlog.write(json.dumps(kw) + "\n")
 
     client = Client()
-    world = client.create(level=8, seed=a.seed)  # a plain practice world: never board=True
+    waited = time.time()
+    while True:
+        try:
+            world = client.create(level=8, seed=a.seed)  # a plain practice world: never board=True
+            break
+        except SpreadError as e:  # the team's 8 slots are full: wait for one, never delete another's world
+            if e.status != 409 or time.time() - waited > a.wait_slot:
+                raise
+            print(f"  all practice slots are taken; waiting ({e.status})", flush=True)
+            time.sleep(20)
     register(world.id, True)
     print(f"livesim {tag}: practice world {world.id} (seed {a.seed}); logs in {out}", flush=True)
     bots: list[subprocess.Popen] = []
@@ -636,6 +645,7 @@ def main() -> None:
     r.add_argument("--impl", default=os.path.join(ROOT, "dispatch.py"), help="the dispatch.py to rehearse")
     r.add_argument("--no-limits", action="store_true", help="do not emulate the final's buckets")
     r.add_argument("--bot-head-start", type=float, default=3.0, help="seconds the bot gets to rebuild before the clock starts")
+    r.add_argument("--wait-slot", type=float, default=1800, help="seconds to wait for a free practice slot")
     r.add_argument("--tag", default="")
     b = sub.add_parser("bot", help="(internal) the bot process")
     b.add_argument("--world", required=True)
