@@ -1,7 +1,0 @@
-v17-stress    st-25  margin €    11,381   399 orders   91.7% on time  comp≈1.303  q/d=777/257 km/bar/mrg=107/0/150  34s
-v17-stress     st-1  margin €    14,027   412 orders   93.7% on time  comp≈1.302  q/d=775/259 km/bar/mrg=145/16/98  26s
-v17-stress     st-6  margin €    13,948   447 orders   95.7% on time  comp≈1.29  q/d=855/181 km/bar/mrg=96/0/85  28s
-v17-stress    st-32  margin €    14,617   432 orders   94.4% on time  comp≈1.39  q/d=837/202 km/bar/mrg=105/0/97  28s
-v17-stress    st-38  margin €     9,144   343 orders   95.9% on time  comp≈1.29  q/d=727/303 km/bar/mrg=96/0/207  25s
-v17-stress    st-21  margin €    18,604   522 orders   95.0% on time  comp≈1.18  q/d=859/180 km/bar/mrg=125/0/55  36s
-v17-stress MEAN margin €13,620/week  worst on-time 91.7%  ranked 6/6

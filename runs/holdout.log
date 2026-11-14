@@ -1,7 +1,0 @@
-v7-holdout     ho-1  margin €     9,108   267 orders   97.8% on time  comp≈1.22  q/d=840/191 km/bar/mrg=87/0/104  40s
-v7-holdout     ho-2  margin €     9,173   324 orders   97.8% on time  comp≈1.253  q/d=880/156 km/bar/mrg=85/0/71  41s
-v7-holdout     ho-6  margin €     6,415   257 orders   98.1% on time  comp≈1.285  q/d=838/201 km/bar/mrg=122/0/79  42s
-v7-holdout     ho-4  margin €    13,299   428 orders   91.6% on time  comp≈1.474  q/d=861/175 km/bar/mrg=91/0/84  42s
-v7-holdout     ho-5  margin €    13,670   417 orders   95.4% on time  comp≈1.474  q/d=865/172 km/bar/mrg=92/0/80  43s
-v7-holdout     ho-3  margin €     4,210   362 orders   75.1% on time  comp≈1.509  q/d=782/252 km/bar/mrg=110/50/92  45s
-v7-holdout MEAN margin €9,312/week  worst on-time 75.1%  ranked 5/6

@@ -1,0 +1,2 @@
+[console_scripts]
+bahn-dispatch = bahn.simulation.dispatch:main

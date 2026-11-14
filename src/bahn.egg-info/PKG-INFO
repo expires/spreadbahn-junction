@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: bahn
+Version: 1.0.0
+Summary: alignas: a dispatcher for Bahn's Spread challenge (Junction 2026)
+Requires-Python: >=3.10
+Requires-Dist: spread @ https://spread.bahnexpress.com/kit/spread-0.1.0-py3-none-any.whl
+Requires-Dist: numpy
+Requires-Dist: pandas
+Requires-Dist: scipy
+Requires-Dist: scikit-learn

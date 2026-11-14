@@ -1,7 +1,0 @@
-v21-stress-bh25     st-1  margin €    13,998   378 orders   95.5% on time  comp≈1.304  q/d=745/289 km/bar/mrg=145/0/144  26s
-v21-stress-bh25    st-25  margin €    12,307   360 orders   93.9% on time  comp≈1.314  q/d=752/282 km/bar/mrg=107/0/175  26s
-v21-stress-bh25     st-6  margin €    13,145   418 orders   96.2% on time  comp≈1.331  q/d=843/193 km/bar/mrg=96/0/97  30s
-v21-stress-bh25    st-38  margin €    10,307   324 orders   98.8% on time  comp≈1.288  q/d=717/313 km/bar/mrg=96/0/217  26s
-v21-stress-bh25    st-32  margin €    13,930   387 orders   95.6% on time  comp≈1.414  q/d=806/233 km/bar/mrg=105/0/128  28s
-v21-stress-bh25    st-21  margin €    18,751   464 orders   98.9% on time  comp≈1.172  q/d=796/243 km/bar/mrg=125/0/118  26s
-v21-stress-bh25 MEAN margin €13,740/week  worst on-time 93.9%  ranked 6/6
