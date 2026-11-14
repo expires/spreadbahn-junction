@@ -68,10 +68,10 @@ class Policy:
     hedge_lambda: float = 40.0   # late-order shadow price while aggressive
     hedge_edge_safe: bool = True # never aggressive on orders due on a Friday or the last Monday (no catch-up day)
     price_mult: float = 1.0      # probe lever: scales every quoted price after optimisation
-    fee_mult: float = 1.0        # probe lever: scales every posted fee schedule
+    fee_mult: float = 0.95       # scales every posted fee schedule (risk-on: +€610/wk with note_fee 1.0, worst week 90.6% on 44 wks)
     tradein_fee: float = 1.0     # fee-estimate multiple for a trade-in (two cars, one price): realised −€18/order at 1.0
     private_fee: float = 1.3     # fee-estimate multiple when a stop is a private address (realised €10/order vs €39)
-    note_fee: float = 1.15       # fee-estimate multiple when the request has a note (attribution: realised fee/typical
+    note_fee: float = 1.0        # fee-estimate multiple when the request has a note (attribution: realised fee/typical
                                  # 1.03 with a note vs 1.04 without, singles, 8 weeks; we win 40% of quoted notes vs 54%)
     fee_open_tiers: tuple = ()   # ((supply index at least, opening multiple), ...), highest first; () = flat fee_open
     fee_steps: tuple = ((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))
