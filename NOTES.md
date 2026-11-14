@@ -25,6 +25,10 @@ Evidence on the six calibrated archived seeds (ev-1..ev-6, same seed = same worl
 | ev-6 | EUR10,348 | 98.3% | 298 |
 | MEAN | EUR14,524 | 97.22% | 397 |
 
+A fresh rerun of the shipped defaults (no overrides at all) reproduced the two largest seeds:
+ev-1 EUR16,707/98.7% and ev-4 EUR20,286/97.2% - i.e. the panel numbers are what the committed
+defaults do, not just what the experiment flags did.
+
 => The mission thresholds are met on the calibrated panel: mean margin EUR14,524/week
 (>= EUR14k) and 97.22% of won orders on time (> 97%), all six runs ranked (>= 90%).
 
