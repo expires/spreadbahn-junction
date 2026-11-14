@@ -25,6 +25,8 @@ SUITES = {
     "quick": [f"bt-{i}" for i in range(1, 7)] + ["ho-3", "st-25"],
     "full": [f"bt-{i}" for i in range(1, 17)] + STRESS,
     "stress": STRESS,
+    "jury": [f"jury-{i}" for i in range(1, 21)],                        # 20 unseen weeks (ablation set)
+    "big": [f"bt-{i}" for i in range(1, 17)] + STRESS + [f"jury-{i}" for i in range(1, 21)],   # all 44
 }
 
 
