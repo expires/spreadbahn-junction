@@ -134,7 +134,7 @@ class Policy:
     offer_fee: float = 2.0       # x typical fee
     offer_reach: int = 150       # only drivers living within this many road minutes of the pickup
     max_km: float = 520.0        # decline longer lanes
-    min_margin: float = 8.0      # euros of expected margin to quote an option at all
+    min_margin: float = 6.0      # euros of expected margin to quote an option at all
     # SLA controller.
     sla_target: float = 0.94
     sla_gain: float = 2.0        # how hard projected lateness raises the margin bar
