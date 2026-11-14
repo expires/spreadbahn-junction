@@ -9,7 +9,16 @@ Sessions: a full week from Monday, and a cold start on Thursday (the test finals
 built at Thursday 00:00 with first_day=3). A cheap or dear world is emulated by moving the prior instead of the
 truth: `shift` 1.14 means the prior is 14% too high (the 14:00 test final: competitor ~1.2x, prior 1.37x).
 
-    SPREAD_DATA=<repo>/data python -m bahn.analysis.warmup_eval
+    SPREAD_DATA=<repo>/data python -m bahn.analysis.warmup_eval [replay|money|testfinal]
+
+Findings (2026-11-14, 50 full weeks replayed, 28 fitted worlds closed loop):
+  * The current learner already gets the level within ~20 decided quotes: in the emulated test final (Thursday
+    cold start, competitor 1.17x vs prior 1.37x) its level error is +0.05 over the first 20 outcomes and ~0 after.
+    Knowing the level exactly from the first quote is worth only +EUR 33 per 2-day session (prior right: +15);
+    the full oracle's +98 is mostly per-lane effects, not the start of the week.
+  * Wider priors (sd0 .12, PriorMix tight+wide, decaying warm-up variance) improve first-20 log-loss only when the
+    prior is far off, and lose on a price-war Thursday (the war goes into the world level: -EUR 4..11, t -3.4).
+  * Practice backtest: regime_mix=0.25 -EUR 326/wk (t -2.9, quick suite). Keep the learner as it is.
 """
 from __future__ import annotations
 
@@ -20,7 +29,7 @@ import numpy as np
 import pandas as pd
 
 from bahn.analysis.regime_eval import PLACES, frame, logloss, req_of
-from bahn.models.regime import Regime
+from bahn.models.regime import PriorMix, Regime
 
 DAY = 1440
 BUCKETS = [(0, 20), (20, 60), (60, 10**9)]
@@ -74,9 +83,16 @@ def summary(P: pd.DataFrame) -> dict:
     return out
 
 
+def _mix(sd_wide: float, w: float):
+    return lambda **k: PriorMix([Regime(PLACES, **k), Regime(PLACES, sd_level0=sd_wide, **k)], [1 - w, w])
+
+
 VARIANTS = {
     "today (sd0 .07)": lambda **k: Regime(PLACES, **k),
     "sd0 .12": lambda **k: Regime(PLACES, sd_level0=0.12, **k),
+    "mix .20 w.25": _mix(0.20, 0.25),
+    "mix .20 w.50": _mix(0.20, 0.50),
+    "warm q.03 n40": lambda **k: Regime(PLACES, warm_n=40, warm_q=0.03, **k),
 }
 
 
@@ -176,11 +192,43 @@ def paired(M: pd.DataFrame, base: str) -> pd.DataFrame:
     return pd.DataFrame(out)
 
 
+def testfinal(variants: dict, level: float = 1.17, war_thursday: bool = False, reps: int = 2) -> pd.DataFrame:
+    """The 14:00 test final, emulated on every saved seed's request stream: cold start Thursday 00:00, competitor
+    flat at `level` x list (no outage; optionally a 0.8x price war on Thursday). Total and day-one euros per
+    variant, paired against the first one."""
+    from bahn.analysis.regime_eval import add_auto_events, truth_worlds
+    if not _WORLDS:
+        df = frame()
+        add_auto_events(df)
+        _WORLDS.update(truth_worlds(df))
+    rows, base = [], None
+    for name, mk in variants.items():
+        per, d1 = [], 0.0
+        for w in _WORLDS.values():
+            lv = {d: math.log(level) + (math.log(0.8) if war_thursday and d == 3 else 0.0) for d in range(5)}
+            w2 = dict(w, levels=lv, pw=3 if war_thursday else -1, out_day=-1, out_region=set())
+            tot = 0.0
+            for k in range(reps):
+                S = simulate(w2, mk, 3, 1.0, 1000 + k)
+                tot += S.em.sum()
+                d1 += S.em[S.day == 3].sum()
+            per.append(tot / reps)
+        per = np.array(per)
+        base = per if base is None else base
+        d = per - base
+        rows.append(dict(variant=name, eur_total=per.mean(), eur_day1=d1 / len(per) / reps, d_eur=d.mean(),
+                         t=d.mean() / (d.std(ddof=1) / math.sqrt(len(d))) if d.std() > 0 else 0.0))
+    return pd.DataFrame(rows)
+
+
 def main(argv):
     pd.set_option("display.width", 250)
     cmd = argv[1] if len(argv) > 1 else "replay"
     if cmd == "replay":
         print(run().round(4).to_string(index=False))
+    elif cmd == "testfinal":
+        print(testfinal(VARIANTS).round(2).to_string(index=False))
+        print(testfinal(VARIANTS, level=1.37, war_thursday=True).round(2).to_string(index=False))
     else:
         M = money(VARIANTS, reps=int(argv[2]) if len(argv) > 2 else 4)
         print(paired(M, next(iter(VARIANTS))).round(3).to_string(index=False))
