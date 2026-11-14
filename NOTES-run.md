@@ -262,3 +262,11 @@ Frontier knobs measured today:
   (worse than both ends), gate .20/select 5 vb-2 8,021/89.1, gate .15/select 5 vb-2 7,701/91.1 -
   the win/trust/driver-feedback dynamics are chaotically sensitive, so every candidate is re-run
   on all six seeds before it is believed.
+
+## v9 verification (committed defaults, no flags)
+
+  final.py pre-flight: PASS (Dispatcher + Policy built with comp_from_qm=1, gate 0.15, select 5;
+  answered a synthetic price request; GET /v1/final polled 404, no world created).
+  test_final_rejoin.py --worlds 1 --skip-loop: ALL CHECKS PASSED (replay + rejoin identical,
+  every request answered in its window, repeat dropped, interruption healed, fallback works).
+  quick_test with no overrides: ev-1 16,707/98.7%, ev-4 20,286/97.2% (mean EUR18,496, 2/2 ranked).
