@@ -70,7 +70,7 @@ class Policy:
     price_mult: float = 1.0      # probe lever: scales every quoted price after optimisation
     fee_mult: float = 1.0        # probe lever: scales every posted fee schedule
     tradein_fee: float = 1.0     # fee-estimate multiple for a trade-in (two cars, one price): realised −€18/order at 1.0
-    private_fee: float = 1.0     # fee-estimate multiple when a stop is a private address (realised €10/order vs €39)
+    private_fee: float = 1.3     # fee-estimate multiple when a stop is a private address (realised €10/order vs €39)
     fee_open_tiers: tuple = ()   # ((supply index at least, opening multiple), ...), highest first; () = flat fee_open
     fee_steps: tuple = ((24, 1.05), (16, 1.25), (10, 1.55), (6, 2.0))
     hold_hours: float = 36.0     # post an order only this many hours before lastPickupAt
