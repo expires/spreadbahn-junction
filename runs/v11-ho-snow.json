@@ -1,0 +1,233 @@
+{
+ "policy": {
+  "comp0": 1.37,
+  "slope": 8.7,
+  "comp_lr": 0.02,
+  "comp_lo": 1.22,
+  "comp_hi": 1.6,
+  "fee_open": 0.9,
+  "fee_steps": [
+   [
+    24,
+    1.05
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    10,
+    1.55
+   ],
+   [
+    6,
+    2.0
+   ]
+  ],
+  "hold_hours": 36.0,
+  "exp_fee": [
+   [
+    4,
+    2.0
+   ],
+   [
+    8,
+    1.55
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    30,
+    1.05
+   ],
+   [
+    1000000000.0,
+    0.95
+   ]
+  ],
+  "p_late": [
+   [
+    4,
+    0.6
+   ],
+   [
+    8,
+    0.3
+   ],
+   [
+    16,
+    0.12
+   ],
+   [
+    30,
+    0.06
+   ],
+   [
+    1000000000.0,
+    0.03
+   ]
+  ],
+  "late_cost": 0.45,
+  "late_shadow": 80.0,
+  "km_late": 0.0,
+  "sup_b": [
+   4.23,
+   -0.816,
+   -0.469,
+   -0.425
+  ],
+  "sup_base": 0.045,
+  "sup_fee": 0.6,
+  "cap_per_supply": 0.12,
+  "cap_min": 3.0,
+  "cong_late": 0.35,
+  "offers": false,
+  "low_fee_scale": 0.75,
+  "mid_fee_scale": 0.88,
+  "lanes": true,
+  "combine": true,
+  "pair_alpha_return": 0.75,
+  "pair_alpha_chain": 0.85,
+  "pair_hop": 45,
+  "pair_return": 45,
+  "pair_chains": false,
+  "snow_late": 0.15,
+  "snow_fee": 0.15,
+  "offer_fee": 2.0,
+  "offer_reach": 150,
+  "max_km": 520.0,
+  "min_margin": 8.0,
+  "sla_target": 0.94,
+  "sla_gain": 2.0,
+  "sla_prior_n": 120,
+  "decline_mult": 4.0
+ },
+ "results": [
+  {
+   "seed": "ho-2",
+   "world": "w39a317a61dcdf22a8c46",
+   "secs": 35,
+   "comp": 1.252,
+   "quoted": 815,
+   "declined": 221,
+   "won": 264,
+   "lost": 364,
+   "d_km": 85,
+   "d_margin": 136,
+   "pairs": 34,
+   "pair_refused": 1,
+   "marginCents": 845089,
+   "revenueCents": 2752636,
+   "marginShare": 0.30701080709545325,
+   "wonOrders": 286,
+   "onTimeShare": 0.9405594405594405,
+   "undeliveredShare": 0.0034965034965034965,
+   "ranked": true
+  },
+  {
+   "seed": "ho-1",
+   "world": "w672cdbcdec66651982b3",
+   "secs": 35,
+   "comp": 1.22,
+   "quoted": 791,
+   "declined": 240,
+   "won": 223,
+   "lost": 409,
+   "d_margin": 153,
+   "d_km": 87,
+   "pairs": 30,
+   "marginCents": 825687,
+   "revenueCents": 2239840,
+   "marginShare": 0.3686365990427888,
+   "wonOrders": 246,
+   "onTimeShare": 0.9715447154471545,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "ho-3",
+   "world": "waf10aa9af3deb8491d4d",
+   "secs": 43,
+   "comp": 1.6,
+   "quoted": 778,
+   "declined": 256,
+   "won": 310,
+   "lost": 291,
+   "d_km": 110,
+   "d_margin": 125,
+   "pairs": 37,
+   "d_bar": 21,
+   "marginCents": 778227,
+   "revenueCents": 3905884,
+   "marginShare": 0.199244780438948,
+   "wonOrders": 353,
+   "onTimeShare": 0.8130311614730878,
+   "undeliveredShare": 0.0028328611898017,
+   "ranked": false
+  },
+  {
+   "seed": "ho-6",
+   "world": "wff74069db22ca4ef9273",
+   "secs": 33,
+   "comp": 1.259,
+   "quoted": 781,
+   "declined": 258,
+   "won": 215,
+   "lost": 439,
+   "d_km": 122,
+   "d_margin": 136,
+   "pairs": 33,
+   "pair_refused": 2,
+   "marginCents": 693167,
+   "revenueCents": 1962081,
+   "marginShare": 0.3532815413838674,
+   "wonOrders": 234,
+   "onTimeShare": 0.9786324786324786,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "ho-4",
+   "world": "we9554be5bf41f3404346",
+   "secs": 41,
+   "comp": 1.459,
+   "quoted": 848,
+   "declined": 188,
+   "won": 410,
+   "lost": 309,
+   "d_km": 91,
+   "d_margin": 97,
+   "pairs": 62,
+   "pair_refused": 4,
+   "marginCents": 1326074,
+   "revenueCents": 4740936,
+   "marginShare": 0.27970721393412606,
+   "wonOrders": 433,
+   "onTimeShare": 0.9099307159353349,
+   "undeliveredShare": 0.0023094688221709007,
+   "ranked": true
+  },
+  {
+   "seed": "ho-5",
+   "world": "wb6b6c12ac7a37d4c5f62",
+   "secs": 41,
+   "comp": 1.501,
+   "quoted": 822,
+   "declined": 215,
+   "won": 379,
+   "lost": 345,
+   "d_margin": 123,
+   "d_km": 92,
+   "pairs": 81,
+   "marginCents": 1539046,
+   "revenueCents": 3855259,
+   "marginShare": 0.3992069015337232,
+   "wonOrders": 398,
+   "onTimeShare": 0.9798994974874372,
+   "undeliveredShare": 0,
+   "ranked": true
+  }
+ ]
+}

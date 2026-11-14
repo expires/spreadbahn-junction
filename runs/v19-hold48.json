@@ -1,0 +1,239 @@
+{
+ "policy": {
+  "comp0": 1.37,
+  "slope": 8.7,
+  "comp_lr": 0.02,
+  "comp_lo": 1.22,
+  "comp_hi": 1.6,
+  "fee_open": 0.9,
+  "fee_steps": [
+   [
+    24,
+    1.05
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    10,
+    1.55
+   ],
+   [
+    6,
+    2.0
+   ]
+  ],
+  "hold_hours": 48.0,
+  "exp_fee": [
+   [
+    4,
+    2.0
+   ],
+   [
+    8,
+    1.55
+   ],
+   [
+    16,
+    1.25
+   ],
+   [
+    30,
+    1.05
+   ],
+   [
+    1000000000.0,
+    0.95
+   ]
+  ],
+  "p_late": [
+   [
+    4,
+    0.6
+   ],
+   [
+    8,
+    0.3
+   ],
+   [
+    16,
+    0.12
+   ],
+   [
+    30,
+    0.06
+   ],
+   [
+    1000000000.0,
+    0.03
+   ]
+  ],
+  "late_cost": 0.45,
+  "pl_scale": 0.6,
+  "late_shadow": 80.0,
+  "km_late": 0.0,
+  "sup_b": [
+   4.23,
+   -0.816,
+   -0.469,
+   -0.425
+  ],
+  "sup_base": 0.045,
+  "sup_fee": 0.6,
+  "cap_per_supply": 0.12,
+  "cap_min": 3.0,
+  "cong_late": 0.35,
+  "offers": false,
+  "low_fee_scale": 0.75,
+  "mid_fee_scale": 0.88,
+  "regime": true,
+  "price_slope": 10.5,
+  "dealer_fx": false,
+  "lanes": true,
+  "notes_v2": true,
+  "combine": true,
+  "pair_alpha_return": 0.75,
+  "pair_alpha_chain": 0.85,
+  "pair_hop": 45,
+  "pair_return": 45,
+  "pair_chains": false,
+  "snow_late": 0.15,
+  "snow_fee": 0.15,
+  "offer_fee": 2.0,
+  "offer_reach": 150,
+  "max_km": 520.0,
+  "min_margin": 8.0,
+  "sla_target": 0.94,
+  "sla_gain": 2.0,
+  "sla_prior_n": 120,
+  "decline_mult": 4.0
+ },
+ "results": [
+  {
+   "seed": "nw-2",
+   "world": "w0c7ccb1dabb2242d0ee0",
+   "secs": 26,
+   "comp": 1.255,
+   "quoted": 817,
+   "declined": 221,
+   "won": 409,
+   "lost": 288,
+   "d_margin": 106,
+   "d_km": 115,
+   "pairs": 55,
+   "pair_refused": 1,
+   "marginCents": 1477206,
+   "revenueCents": 4361175,
+   "marginShare": 0.33871743280193983,
+   "wonOrders": 416,
+   "onTimeShare": 0.9471153846153846,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "nw-3",
+   "world": "w3bcd51afaa71c07bbfd7",
+   "secs": 27,
+   "comp": 1.372,
+   "quoted": 802,
+   "declined": 238,
+   "won": 408,
+   "lost": 256,
+   "d_km": 118,
+   "d_margin": 120,
+   "pairs": 53,
+   "pair_refused": 1,
+   "marginCents": 1351382,
+   "revenueCents": 4609683,
+   "marginShare": 0.29316159050416263,
+   "wonOrders": 445,
+   "onTimeShare": 0.9573033707865168,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "nw-4",
+   "world": "w39515f92130fec652ac2",
+   "secs": 26,
+   "comp": 1.299,
+   "quoted": 762,
+   "declined": 268,
+   "won": 382,
+   "lost": 281,
+   "d_km": 97,
+   "d_margin": 171,
+   "pairs": 44,
+   "pair_refused": 2,
+   "marginCents": 1198203,
+   "revenueCents": 3921868,
+   "marginShare": 0.3055184417221589,
+   "wonOrders": 413,
+   "onTimeShare": 0.9515738498789347,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "nw-1",
+   "world": "we3a94199773c9bb1f9cf",
+   "secs": 29,
+   "comp": 1.222,
+   "quoted": 795,
+   "declined": 235,
+   "won": 377,
+   "lost": 309,
+   "d_km": 108,
+   "d_margin": 127,
+   "pairs": 65,
+   "marginCents": 1101000,
+   "revenueCents": 3564659,
+   "marginShare": 0.3088654482799056,
+   "wonOrders": 390,
+   "onTimeShare": 0.9461538461538461,
+   "undeliveredShare": 0,
+   "ranked": true
+  },
+  {
+   "seed": "nw-5",
+   "world": "wfa1bb027f5d135530b0f",
+   "secs": 31,
+   "comp": 1.434,
+   "quoted": 770,
+   "declined": 270,
+   "won": 421,
+   "lost": 253,
+   "d_km": 99,
+   "d_margin": 171,
+   "pairs": 66,
+   "pair_refused": 2,
+   "marginCents": 1629092,
+   "revenueCents": 4239766,
+   "marginShare": 0.38424101707499897,
+   "wonOrders": 443,
+   "onTimeShare": 0.9706546275395034,
+   "undeliveredShare": 0.002257336343115124,
+   "ranked": true
+  },
+  {
+   "seed": "nw-6",
+   "world": "wdad92282e9db040dc51d",
+   "secs": 34,
+   "comp": 1.293,
+   "quoted": 814,
+   "declined": 222,
+   "won": 347,
+   "lost": 286,
+   "d_margin": 138,
+   "d_km": 84,
+   "pairs": 41,
+   "pair_refused": 2,
+   "marginCents": 1167481,
+   "revenueCents": 3641109,
+   "marginShare": 0.3206388493176118,
+   "wonOrders": 379,
+   "onTimeShare": 0.9630606860158312,
+   "undeliveredShare": 0.002638522427440633,
+   "ranked": true
+  }
+ ]
+}

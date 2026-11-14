@@ -3,6 +3,7 @@
 data/
 __pycache__/
 *.pyc
+.claude/worktrees/
 runs/livesim/
-runs/live-*.json
-runs/live-*.json.tmp
+runs/live-*.pkl
+runs/live-*.pkl.tmp

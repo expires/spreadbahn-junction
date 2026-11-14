@@ -11,6 +11,7 @@ import argparse
 import json
 import math
 import os
+import pickle
 import re
 import sys
 import time
@@ -19,6 +20,8 @@ from concurrent.futures import ThreadPoolExecutor as ProcessPoolExecutor, as_com
 from dataclasses import asdict, dataclass, field, replace
 from typing import Optional
 
+import notes
+from regime import Regime
 from spread import starter
 from spread.client import Client, SpreadError, Unreachable
 from spread.starter import DAY, HOUR, WAKE_ON, Desk, steep, undelivered
@@ -63,6 +66,7 @@ class Policy:
     exp_fee: tuple = ((4, 2.0), (8, 1.55), (16, 1.25), (30, 1.05), (1e9, 0.95))
     p_late: tuple = ((4, 0.6), (8, 0.3), (16, 0.12), (30, 0.06), (1e9, 0.03))
     late_cost: float = 0.45      # refund + lost trust, as a share of the price
+    pl_scale: float = 0.6        # calibration multiplier on the modelled P(late)
     late_shadow: float = 80.0    # euros: the shadow price of the 90% minimum, per expected late order
     km_late: float = 0.0         # extra P(late) per km (now inside the supply model)
     # P(late) from driver supply, fitted on v5 runs: logit = b0 + bp*log1p(S_pickup) + bd*log1p(S_delivery) + bk*km/100,
@@ -78,8 +82,19 @@ class Policy:
     offers: bool = False
     low_fee_scale: float = 0.75  # levels 1-3 (no competitor, many drivers): fees and fee estimates scale by this
     mid_fee_scale: float = 0.88  # levels 4-6
-    lanes: bool = False          # use the persistent pickup/delivery price effects (lane_effects.json)
-    snow_late: float = 0.0       # extra P(late) for a leg touching a snowed place on its pickup day
+    regime: bool = True          # Bayesian day level + price-war mixture + outage detection (regime.py)
+    price_slope: float = 10.5    # dealer price slope used with the regime learner
+    dealer_fx: bool = False      # add persistent per-dealer price effects
+    lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
+    # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
+    notes_v2: bool = True             # the team's note parser (notes.py) instead of the kit's keyword reader
+    combine: bool = True
+    pair_alpha_return: float = 0.75   # fee of a pair whose second car ends near the first's start, x (refA + refB)
+    pair_alpha_chain: float = 0.85    # any other feasible pair
+    pair_hop: int = 45                # max road minutes from A's delivery to B's pickup
+    pair_return: int = 45             # B ending within this of A's pickup counts as a return
+    pair_chains: bool = False         # also pair cars whose second leg does not come back
+    snow_late: float = 0.15      # extra P(late) for a leg touching a snowed place on its pickup day
     snow_fee: float = 0.15       # fee uplift for such a leg
     offer_fee: float = 2.0       # x typical fee
     offer_reach: int = 150       # only drivers living within this many road minutes of the pickup
@@ -102,6 +117,7 @@ def step_lookup(table: tuple, x: float) -> float:
 class Road:
     def __init__(self, wmap: dict):
         self.r = {(x["from"], x["to"]): x for x in wmap["roads"]}
+        self.places = wmap.get("places", [])
 
     def minutes(self, a: str, b: str) -> int:
         return self.r[(a, b)]["minutes"]
@@ -114,6 +130,7 @@ class Dispatcher(Desk):
     def __init__(self, world, level, now, policy: Policy, road: Road):
         super().__init__(world, level, now)
         self.supply: dict[str, float] = {}
+        self.qlog: list[dict] = []               # per quoted option: the model's predictions, for calibration
         self.load: dict[tuple, float] = {}       # (pickup place, day) -> expected cars
         self.snow: list[tuple] = []              # (from, to, set of place ids) from forecasts
         self.pending: dict[str, tuple] = {}      # request id -> (key, weight) of an open quote
@@ -121,6 +138,8 @@ class Dispatcher(Desk):
         # The competitor's price level by level, from the rules: near list up to 6, 1.12-1.38 at 7, 1.26-1.54 at 8.
         self.comp_lo, self.comp_hi, comp0 = {7: (1.05, 1.45, 1.25), 8: (policy.comp_lo, policy.comp_hi, policy.comp0)}.get(level, (0.85, 1.2, 1.0))
         self.log_comp = math.log(comp0)
+        self.regime = Regime(road.places, level0=math.log(comp0), first_day=now // DAY) \
+            if policy.regime and level >= 8 and road.places else None
         self.lanes = json.load(open(os.path.join(ROOT, "lane_effects.json"))) if policy.lanes else None
         self.fee_scale = policy.low_fee_scale if level <= 3 else policy.mid_fee_scale if level <= 6 else 1.0
         self.day_of_comp = now // DAY
@@ -219,7 +238,7 @@ class Dispatcher(Desk):
         slack = self.slack_hours(request, o["deadline"])
         sl = self.supply_late(request) + self.congestion(request)
         fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
-        pl = min(0.95, step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base) + pressure)
+        pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + max(0.0, sl - p.sup_base)) + pressure)
         margin = lst * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
         if km > p.max_km or margin < p.min_margin * (1 + p.sla_gain * pressure * 10):
             self.stats["declined"] += 1
@@ -246,7 +265,11 @@ class Dispatcher(Desk):
         bar = p.min_margin * (1 + p.sla_gain * pressure * 10)
         boost = 1 + 0.01 * self.trust.get(request["dealerId"], 0) if self.level >= 8 else 1.0
         lane = self.lane_offset(request)
-        comp = math.exp(self.log_comp + lane) * boost
+        if self.regime:
+            comp = math.exp(self.regime.level(self.now) + lane + self.regime.adjust(request, self.now)) * boost
+        else:
+            comp = math.exp(self.log_comp + lane) * boost
+        slope = p.price_slope if self.regime else p.slope
         prices: dict[str, int] = {}
         best_lr = None
         for o in request["options"]:
@@ -254,16 +277,18 @@ class Dispatcher(Desk):
             slack = self.slack_hours(request, o["deadline"])
             sl = self.supply_late(request) + self.congestion(request) + self.snow_risk(request, o["deadline"])
             fee = self.fee_scale * ref * step_lookup(p.exp_fee, slack) * (1.15 if request["note"] else 1.0) * (1 + p.sup_fee * max(0.0, sl - p.sup_base))
-            pl = min(0.95, step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base) + pressure)
+            pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base)) + pressure)
             best, best_x = -1e9, None
             for i in range(60):
                 x = 0.85 + i * 0.02  # price as x list
                 price = lst * x
-                win = 1 / (1 + math.exp(p.slope * (math.log(x) - math.log(comp))))
+                win = 1 / (1 + math.exp(slope * (math.log(x) - math.log(comp))))
                 margin = price * (1 - pl * p.late_cost) - fee - pl * p.late_shadow * (1 + p.sla_gain * pressure * 10)
                 if margin * win > best:
                     best, best_x, best_margin = margin * win, x, margin
             if best_x is not None and best_margin >= bar:
+                self.qlog.append({"rid": request["id"], "opt": o["kind"], "pl": round(pl, 4), "sl": round(sl, 4), "fee": round(fee, 2),
+                                  "x": round(best_x, 3), "slack": round(slack, 1), "pressure": round(pressure, 4)})
                 prices[o["kind"]] = int(lst * best_x * 100)
                 lr = math.log(best_x)
                 best_lr = lr if best_lr is None else min(best_lr, lr)
@@ -289,13 +314,21 @@ class Dispatcher(Desk):
         if not self.lanes:
             return 0.0
         leg = request["legs"][0]
-        return self.lanes["pickup"].get(leg["pickup"]["placeId"], 0.0) + self.lanes["delivery"].get(leg["delivery"]["placeId"], 0.0)
+        off = self.lanes["pickup"].get(leg["pickup"]["placeId"], 0.0) + self.lanes["delivery"].get(leg["delivery"]["placeId"], 0.0)
+        if self.p.dealer_fx:
+            off += self.lanes.get("dealer", {}).get(request["dealerId"], 0.0)
+        return off
 
     def learn(self, request_id: str, won: bool) -> None:
         """One SGD step of the logistic likelihood on log(comp)."""
         if request_id not in self.quoted:
             return
         lr, _ = self.quoted.pop(request_id)
+        if self.regime:
+            self.stats["won" if won else "lost"] += 1
+            self.regime.observe(self.requests[request_id], lr, won, self.now)
+            self.log_comp = self.regime.level(self.now)
+            return
         pwin = 1 / (1 + math.exp(self.p.slope * (lr - self.log_comp)))
         self.log_comp += self.p.comp_lr * ((1.0 if won else 0.0) - pwin)
         self.log_comp = min(math.log(self.comp_hi), max(math.log(self.comp_lo), self.log_comp))
@@ -333,8 +366,121 @@ class Dispatcher(Desk):
         self.trust[d] = min(25, self.trust.get(d, 0) + 1) if on_time else self.trust.get(d, 0) // 2
 
     def post(self, order, legs, retry=starter.Retry()) -> None:
-        if legs:
-            super().post(order, legs, retry)
+        if not legs:
+            return
+        if self.p.combine and self.level >= 3 and retry == starter.Retry() and self.pairable(order):
+            best = self.find_partner(order)
+            if best is not None:
+                return self.post_pair(*best)
+        self.post_single(order, legs, retry)
+
+    def post_single(self, order, legs, retry=starter.Retry()) -> None:
+        if not self.p.notes_v2:
+            return Desk.post(self, order, legs, retry)
+        req = self.requests[order["id"]]
+        stops = starter.without_windows(notes.stops_for(order, legs, req, retry, self.now), self.now)
+        audience = notes.audience_for(order, legs, req, retry)
+        self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": self.fees_for(order, len(legs))})
+        if len(legs) > 1:  # a trade-in over the 12-hour limit goes as one gig per car, as in the kit
+            self.send()
+            if not self.gigs_of(order["id"]):
+                for leg in legs:
+                    self.post_single(order, [leg], retry)
+
+    # ---------- multi-car gigs ----------
+    def pairable(self, o: Order) -> bool:
+        if len(o["legs"]) != 1 or any(t is not None for t in o["deliveredAt"]):
+            return False
+        leg = o["legs"][0]
+        return not (leg["pickup"]["privateAddress"] or leg["delivery"]["privateAddress"])
+
+    def pair_plan(self, x: Order, y: Order) -> Optional[tuple]:
+        """(score, alpha) if one driver can take x then y on time, by road minutes with buffers; else None."""
+        X, Y = x["legs"][0], y["legs"][0]
+        xp, xd, yp, yd = X["pickup"]["placeId"], X["delivery"]["placeId"], Y["pickup"]["placeId"], Y["delivery"]["placeId"]
+        hop = self.road.minutes(xd, yp)
+        if hop > self.p.pair_hop:
+            return None
+        xdrive, ydrive = self.road.minutes(xp, xd), self.road.minutes(yp, yd)
+        if xdrive + hop + ydrive > 12 * 60 - 30:
+            return None
+        start = max(self.now + 120, X["pickup"]["window"]["from"])
+        if start > x["lastPickupAt"] - 60:
+            return None
+        xdel = start + xdrive + (40 if X["car"]["electric"] and (X["car"]["chargePercent"] or 100) < 30 else 0)
+        if xdel > x["deadline"] - 60:
+            return None
+        ypick = max(xdel + hop, Y["pickup"]["window"]["from"])
+        if ypick > y["lastPickupAt"] - 60 or ypick + ydrive > y["deadline"] - 60:
+            return None
+        back = self.road.minutes(yd, xp)
+        if back > self.p.pair_return and not self.p.pair_chains:
+            return None
+        alpha = self.p.pair_alpha_return if back <= self.p.pair_return else self.p.pair_alpha_chain
+        return (back + hop, alpha)
+
+    def find_partner(self, a: Order) -> Optional[tuple]:
+        best = None
+        held = self.held()
+        for b in self.orders.values():
+            if b["id"] == a["id"] or not self.pairable(b) or b["id"] in self.urgent:
+                continue
+            gigs = self.gigs_of(b["id"])
+            if gigs and (any(g in self.booked for g in gigs) or any(len(self.posts.get(g, {}).get("stops", [])) != 2 for g in gigs)):
+                continue  # booked, or already in a pair
+            if not gigs and b["id"] not in held:
+                continue  # not won-and-waiting in our books
+            for x, y in ((a, b), (b, a)):
+                plan = self.pair_plan(x, y)
+                if plan and (best is None or plan[0] < best[0]):
+                    best = (plan[0], x, y, plan[1])
+        return None if best is None else best[1:]
+
+    def post_pair(self, x: Order, y: Order, alpha: float) -> None:
+        for o in (x, y):  # take an open single gig of either order out of the app first
+            for g in self.gigs_of(o["id"]):
+                self.outbox.append({"type": "withdraw", "gigId": g})
+            self.leg_gigs.pop(o["id"], None)
+        self.timers = [t for t in self.timers if t[1] not in (x["id"], y["id"])]
+        stops = []
+        audience = {"experienced": False, "manualLicence": False}
+        for o in (x, y):
+            req = self.requests[o["id"]]
+            if self.p.notes_v2:
+                stops += starter.without_windows(notes.stops_for(o, [0], req, starter.Retry(), self.now), self.now)
+                a = notes.audience_for(o, [0], req, starter.Retry())
+            else:
+                stops += starter.without_windows(starter.stops_for(o, [0], req["note"], starter.Retry()), self.now)
+                a = {"experienced": o["legs"][0]["car"]["premium"], "manualLicence": False}
+            audience = {k: audience[k] or a[k] for k in audience}
+        ref = alpha * (self.requests[x["id"]]["referenceFeeCents"] + self.requests[y["id"]]["referenceFeeCents"])
+        sched = self.schedule(ref, min(x["lastPickupAt"], y["lastPickupAt"]))
+        self.outbox.append({"type": "post", "stops": stops, "audience": audience, "schedule": sched})
+        self.send()
+        if not self.gigs_of(x["id"]):  # refused: post each alone
+            self.stats["pair_refused"] = self.stats.get("pair_refused", 0) + 1
+            for o in (x, y):
+                self.post_single(o, [0])
+        else:
+            self.stats["pairs"] = self.stats.get("pairs", 0) + 1
+
+    def send_post_of(self, order_id: str) -> None:
+        if any(a["type"] == "post" and any(s["orderId"] == order_id for s in a["stops"]) for a in self.outbox):
+            self.send()
+
+    def withdraw(self, order_id: str) -> bool:
+        """As the kit's, and a partner that shared the withdrawn gig is posted again on its own."""
+        self.send_post_of(order_id)
+        gigs = self.gigs_of(order_id)
+        if any(g in self.booked for g in gigs):
+            return False
+        partners = {s["orderId"] for g in gigs for s in self.posts.get(g, {}).get("stops", [])} - {order_id}
+        ok = super().withdraw(order_id)
+        for pid in partners:
+            self.leg_gigs.pop(pid, None)
+            if pid in self.orders:
+                self.post_single(self.orders[pid], undelivered(self.orders[pid]))
+        return ok
 
     def rejoin(self, snapshot, history) -> None:
         """The kit's rejoin posts every waiting order without a gig at once. Orders that win() would still hold go back
@@ -356,16 +502,24 @@ class Dispatcher(Desk):
     # ---------- sending: the live loop's IO ----------
     pacer = None        # the final's action bucket, set by play_live; None in practice (no limit)
 
-    def priority(self, action) -> int:
-        """Quotes first (15 world minutes, 4.5 real seconds), then the gigs of orders past their deadline warning, then the rest.
-        A withdraw and the post that replaces it belong to one order, so they keep their order."""
-        if action["type"] == "quote":
-            return 0
-        if action["type"] == "post":
-            order_id = action["stops"][0]["orderId"]
-        else:
-            order_id = self.posts.get(action.get("gigId"), {}).get("stops", [{}])[0].get("orderId")
-        return 1 if order_id in self.urgent else 2
+    def orders_of(self, action) -> set:
+        """The orders an action touches: a post's stops (two orders for a pair), else the stops of the gig it names."""
+        stops = action["stops"] if action["type"] == "post" else self.posts.get(action.get("gigId"), {}).get("stops", [])
+        return {s["orderId"] for s in stops}
+
+    def by_priority(self, actions: list) -> list:
+        """Quotes first (15 world minutes, 4.5 real seconds), then the actions on orders past their deadline warning, then
+        the rest, each class in outbox order. A post or withdraw never jumps ahead of an earlier post or withdraw that touches
+        one of its orders (a withdraw, then the post that replaces it; the singles a pair post takes out of the app)."""
+        keyed, touched = [], set()
+        for i, a in enumerate(actions):
+            orders = self.orders_of(a) if a["type"] != "quote" else set()
+            moves = a["type"] in ("post", "withdraw")
+            k = 0 if a["type"] == "quote" else 1 if orders & self.urgent and not (moves and orders & touched) else 2
+            if moves:
+                touched |= orders
+            keyed.append((k, i, a))
+        return [a for _, _, a in sorted(keyed, key=lambda x: x[:2])]
 
     def send(self, budget: Optional[int] = None) -> None:
         """Sends the outbox by priority, in batches of 50: all of it, or at most `budget` actions, and the rest waits
@@ -374,7 +528,7 @@ class Dispatcher(Desk):
             return
         keep = [a for a in self.outbox if a["type"] != "quote" or self.now <= self.requests.get(a["requestId"], {}).get("respondBy", self.now)]
         self.stats["late_quotes"] = self.stats.get("late_quotes", 0) + len(self.outbox) - len(keep)
-        keep.sort(key=self.priority)
+        keep = self.by_priority(keep)
         n = len(keep) if budget is None else max(0, budget)
         actions, self.outbox = keep[:n], keep[n:]
         for i in range(0, len(actions), 50):
@@ -490,7 +644,9 @@ class Dispatcher(Desk):
             return steep(self.now, ref, self.level)
         if self.level == 1:  # one fee per gig at level 1
             return [{"at": self.now, "feeCents": max(1, int(ref * 1.05 * self.fee_scale))}]
-        last = order["lastPickupAt"]
+        return self.schedule(ref, order["lastPickupAt"])
+
+    def schedule(self, ref: float, last: int) -> list[FeeStep]:
         steps = [(self.now, self.p.fee_open)]
         for hours_before, mult in self.p.fee_steps:
             at = last - hours_before * HOUR
@@ -529,7 +685,14 @@ def play_practice(world, level: int, policy: Policy, road: Road, desk: Optional[
 def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dict:
     client = Client()
     road = Road(client.map())
-    world = client.create(level=level, seed=seed)
+    for attempt in range(90):  # the team shares 8 practice slots: wait for one rather than fail
+        try:
+            world = client.create(level=level, seed=seed)
+            break
+        except SpreadError as e:
+            if getattr(e, "status", None) != 409 or attempt == 89:
+                raise
+            time.sleep(20)
     LIVE.add(world.id)
     t0 = time.time()
     try:
@@ -543,7 +706,7 @@ def run_seed(seed: str, level: int, policy: Policy, tag: str, keep: bool) -> dic
     LIVE.discard(world.id)
     if keep:
         import explore
-        explore.save(client, world, f"{tag}-{seed}", level, [])
+        explore.save(client, world, f"{tag}-{seed}", level, desk.qlog)
     s = world.score()
     return {"seed": seed, "world": world.id, "secs": round(time.time() - t0), "comp": round(math.exp(desk.log_comp), 3), **desk.stats, **s}
 
@@ -588,7 +751,7 @@ def rebuild(world, policy: Policy, road: Road, level: int) -> tuple[Dispatcher, 
         desk.settle(order_id)
     desk.snow = [(e["from"], e["to"], set(e["placeIds"])) for e in history if e["kind"] == "forecast"]
     quotes = {}
-    for e in history:  # replay the competitor learner on the outcomes we saw
+    for e in (history if desk.regime is None else []):  # replay the SGD learner; the regime learner restarts from its prior
         if e["kind"] == "price_request":
             quotes[e["request"]["id"]] = e["request"]
         elif e["kind"] in ("order_won", "order_lost"):
@@ -634,14 +797,16 @@ def play_live(world, policy: Policy, road: Road, level: int = 8, clock=None) -> 
     t0 = time.monotonic()
     desk, seq, ends = rebuild(world, policy, road, level)
     desk.pacer = Pacer()
-    # The events do not hold our quoted prices, so rebuild can only guess the competitor estimate: keep ours on disk.
-    saved_at, checkpoint = time.monotonic(), os.path.join(ROOT, "runs", f"live-{world.id}.json")
+    # The events do not hold our quoted prices, so rebuild can only guess the competitor estimate (or restart the regime
+    # learner from its prior): after a crash of our own, take back what this desk had learned, from disk.
+    saved_at, checkpoint = time.monotonic(), os.path.join(ROOT, "runs", f"live-{world.id}.pkl")
     rebuilt_comp = desk.log_comp
     try:
-        saved = json.load(open(checkpoint))
-        desk.log_comp = saved["log_comp"]
-        desk.quoted = {**{k: tuple(v) for k, v in saved["quoted"].items() if k in desk.requests}, **desk.quoted}
-    except (OSError, ValueError, KeyError):
+        with open(checkpoint, "rb") as fh:
+            saved = pickle.load(fh)
+        desk.log_comp, desk.regime = saved["log_comp"], saved["regime"] if desk.regime is not None else None
+        desk.quoted = {**{k: v for k, v in saved["quoted"].items() if k in desk.requests}, **desk.quoted}
+    except Exception:  # noqa: BLE001  (none yet, or unreadable: rebuild's guess stands)
         pass
     print(f"live: rebuilt at minute {desk.now} in {time.monotonic() - t0:.1f} s: {len(desk.orders)} orders, "
           f"{len(desk.outbox)} actions to send, comp≈{math.exp(desk.log_comp):.3f} (rebuild guessed {math.exp(rebuilt_comp):.3f})", flush=True)
@@ -656,10 +821,10 @@ def play_live(world, policy: Policy, road: Road, level: int = 8, clock=None) -> 
                     saved_at = now
                     try:
                         os.makedirs(os.path.dirname(checkpoint), exist_ok=True)
-                        with open(checkpoint + ".tmp", "w") as fh:
-                            json.dump({"log_comp": desk.log_comp, "quoted": desk.quoted}, fh)
+                        with open(checkpoint + ".tmp", "wb") as fh:
+                            pickle.dump({"log_comp": desk.log_comp, "quoted": desk.quoted, "regime": desk.regime}, fh)
                         os.replace(checkpoint + ".tmp", checkpoint)
-                    except OSError:
+                    except Exception:  # noqa: BLE001
                         pass
                 if event is not None:
                     seq, heard = event["seq"], now

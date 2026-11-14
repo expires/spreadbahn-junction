@@ -1,0 +1,39 @@
+    v8     ev-3  margin €     6,926   285 orders   94.7% on time  comp≈1.261  q/d=855/179 km/bar/mrg=86/0/93  32s
+    v8     ev-5  margin €    13,135   393 orders   95.7% on time  comp≈1.348  q/d=880/152 km/bar/mrg=96/0/56  33s
+    v8     ev-6  margin €     8,540   270 orders   96.7% on time  comp≈1.331  q/d=806/226 km/bar/mrg=104/0/122  33s
+    v8     ev-1  margin €    15,002   426 orders   95.3% on time  comp≈1.255  q/d=849/186 km/bar/mrg=83/0/103  35s
+    v8     ev-4  margin €    16,177   488 orders   93.4% on time  comp≈1.288  q/d=864/172 km/bar/mrg=102/0/70  36s
+    v8     ev-2  margin €    12,582   431 orders   96.1% on time  comp≈1.593  q/d=879/159 km/bar/mrg=106/0/53  40s
+    v8     ho-1  margin €     9,143   264 orders   98.1% on time  comp≈1.22  q/d=836/195 km/bar/mrg=87/0/108  29s
+    v8     ho-2  margin €     8,864   308 orders   97.7% on time  comp≈1.249  q/d=860/176 km/bar/mrg=85/0/91  31s
+    v8     ho-4  margin €    13,312   426 orders   93.2% on time  comp≈1.481  q/d=859/177 km/bar/mrg=91/0/86  30s
+    v8     ho-5  margin €    13,585   403 orders   95.5% on time  comp≈1.511  q/d=856/181 km/bar/mrg=92/0/89  31s
+    v8     ho-6  margin €     6,658   257 orders   97.7% on time  comp≈1.284  q/d=825/214 km/bar/mrg=122/0/92  33s
+    v8     ho-3  margin €     3,615   354 orders   76.6% on time  comp≈1.473  q/d=775/259 km/bar/mrg=110/57/92  40s
+    v8 MEAN margin €10,628/week  worst on-time 76.6%  ranked 11/12
+v8-cong07     ev-5  margin €    13,405   391 orders   96.4% on time  comp≈1.339  q/d=877/155 km/bar/mrg=96/0/59  40s
+v8-cong07     ev-6  margin €     8,614   271 orders   97.0% on time  comp≈1.339  q/d=800/232 km/bar/mrg=104/0/128  41s
+v8-cong07     ev-2  margin €    12,684   426 orders   96.5% on time  comp≈1.576  q/d=876/162 km/bar/mrg=106/0/56  41s
+v8-cong07     ev-1  margin €    13,537   427 orders   94.4% on time  comp≈1.376  q/d=845/190 km/bar/mrg=83/0/107  44s
+v8-cong07     ev-3  margin €     6,488   287 orders   95.1% on time  comp≈1.261  q/d=851/183 km/bar/mrg=86/0/97  45s
+v8-cong07     ev-4  margin €    16,017   484 orders   93.2% on time  comp≈1.295  q/d=858/178 km/bar/mrg=102/0/76  47s
+v8-cong07     ho-2  margin €     8,699   303 orders   97.4% on time  comp≈1.22  q/d=859/177 km/bar/mrg=85/0/92  34s
+v8-cong07     ho-1  margin €     9,169   264 orders   98.1% on time  comp≈1.22  q/d=834/197 km/bar/mrg=87/0/110  35s
+v8-cong07     ho-6  margin €     6,386   262 orders   98.1% on time  comp≈1.28  q/d=814/225 km/bar/mrg=122/0/103  32s
+v8-cong07     ho-3  margin €     4,886   348 orders   77.0% on time  comp≈1.429  q/d=777/257 km/bar/mrg=110/55/92  38s
+v8-cong07     ho-4  margin €    12,558   424 orders   91.5% on time  comp≈1.494  q/d=854/182 km/bar/mrg=91/0/91  35s
+v8-cong07     ho-5  margin €    13,614   397 orders   96.5% on time  comp≈1.514  q/d=844/193 km/bar/mrg=92/0/101  41s
+v8-cong07 MEAN margin €10,505/week  worst on-time 77.0%  ranked 11/12
+v8-cap08     ev-2  margin €    12,796   401 orders   96.5% on time  comp≈1.588  q/d=852/186 km/bar/mrg=106/0/80  36s
+v8-cap08     ev-4  margin €    16,682   462 orders   93.9% on time  comp≈1.269  q/d=844/192 km/bar/mrg=102/0/90  37s
+v8-cap08     ev-3  margin €     6,449   281 orders   95.4% on time  comp≈1.263  q/d=848/186 km/bar/mrg=86/0/100  37s
+v8-cap08     ev-6  margin €     8,424   264 orders   97.0% on time  comp≈1.321  q/d=801/231 km/bar/mrg=104/0/127  39s
+v8-cap08     ev-5  margin €    12,898   370 orders   97.6% on time  comp≈1.333  q/d=862/170 km/bar/mrg=96/0/74  40s
+v8-cap08     ev-1  margin €    13,130   404 orders   94.3% on time  comp≈1.356  q/d=826/209 km/bar/mrg=83/0/126  43s
+v8-cap08     ho-1  margin €     8,207   257 orders   98.1% on time  comp≈1.22  q/d=814/217 km/bar/mrg=87/0/130  34s
+v8-cap08     ho-2  margin €     8,426   294 orders   97.6% on time  comp≈1.241  q/d=847/189 km/bar/mrg=85/0/104  34s
+v8-cap08     ho-4  margin €    12,906   404 orders   92.6% on time  comp≈1.467  q/d=841/195 km/bar/mrg=91/0/104  34s
+v8-cap08     ho-3  margin €     6,395   333 orders   80.5% on time  comp≈1.445  q/d=763/271 km/bar/mrg=110/53/108  37s
+v8-cap08     ho-5  margin €    13,131   386 orders   96.9% on time  comp≈1.493  q/d=832/205 km/bar/mrg=92/0/113  35s
+v8-cap08     ho-6  margin €     6,516   255 orders   98.4% on time  comp≈1.301  q/d=813/226 km/bar/mrg=122/0/104  37s
+v8-cap08 MEAN margin €10,497/week  worst on-time 80.5%  ranked 11/12
