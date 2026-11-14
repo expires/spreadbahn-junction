@@ -66,3 +66,33 @@ a decision log recording every idea, its measured effect and its status; a one-c
   ~EUR1.9/order driver-fee gap and the Friday-capacity failure mode);
 - validate the fee-change candidate on the partner's 24-week bank (paired, per seed);
 - extend the safety controller to act on realised capacity stress earlier.
+
+## The rules in one slide
+
+Score = gross margin. On-time is a per-week qualification threshold: fewer than 90% of won orders on
+time means the week is not ranked. Ranking rounds need all five weeks each >= 90%; rounds do not
+count for the final. The final is one secret level-8 week (Sunday 08:00); the 10 ranked teams with
+the highest margin present, then the jury judges the system: elegant, clear, creative, robust.
+
+## Robustness and the near-failure week (an honest slide)
+
+- 16 deterministic validation worlds across three seed panels: 16/16 ranked, worst week 90.3%
+  on time (vb-2), best 98.4%.
+- vb-2 diagnosis: 40 late/undelivered of 397 won; 25 lates due on the Friday, with 23 gigs expired
+  that day; 57 deadline warnings, 52 of those orders still arrived late. It is a driver-capacity
+  crunch on one day, not a set of badly priced quotes.
+- Responses tested against frozen defaults on identical worlds: a projection-based safety
+  controller had no measurable effect (the booking model over-estimates bookings); an early
+  fee-rescue response bought +0.7 points for -EUR4.2k and was rejected; quoting only slower
+  delivery options above a realised-late threshold did not trigger in time. The documented safe
+  configuration (gate 0.15 + selection bar) reaches 97.2% on the calibration panel at ~EUR300-500
+  per week.
+- Restart robustness: the runner rebuilds from snapshot + events, drops repeated events, and the
+  offline rejoin test passes all checks.
+
+## Comparable-baseline check against the other system
+
+- Their bank (bt-1): our frozen policy scored EUR13,579, 408 won, 98.8% on time, ranked; the
+  event-ledger sum equals the score margin to the cent, so the simulator, level settings and
+  accounting are comparable. Their cached per-seed baselines are not in the shared repo, so the
+  full paired bank table remains open.

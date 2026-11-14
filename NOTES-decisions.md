@@ -179,3 +179,35 @@ the same bank. The bank is also not a clean holdout for their policy (they tuned
   The punctuality-safe alternative remains gate 0.15 + select bar EUR5 (ev 14,524 @97.2%,
   vb 13,072 @96.5%, vc 12,519 @97.0%) at a measured margin cost; choosing between it and the
   shipped margin-first v9 is the final risk decision.
+
+## Round-7 decisions (final configuration, runbook, presentation)
+
+### D16. Final configuration: keep margin-first v9 - DECIDED (branch lead, evidence-based)
+All 16 deterministic validation worlds rank with the shipped defaults; worst is 90.3% (vb-2) and the
+average is 95.45% at EUR14,488/week (ev calibration panel EUR15,042 @ 95.92%). The safe alternative
+(gate 0.15 + select bar EUR5) reaches 97.2% on the calibration panel but costs ~EUR300-500/week and
+~EUR1k on the 16-world mean. Ranking is by margin among teams that clear the 90% cut, so the
+margin-first setting is the better expected top-10 play; the safe knob is documented in NOTES.md and
+FINAL.md as a two-field change if the team prefers lower variance on the day.
+
+### D8 (fee_open=0.82) - PAUSED, not promoted
+Mixed paired evidence (+568 mean, 2/6 seeds negative, worst ot 93.5%). Never validated on vb/vc
+because practice slots were saturated by the partner's round automation; the default stays off.
+If time allows it is a one-field retest on the validation panels.
+
+### D14. Safety controller - CLOSED: no effective response found within the time
+Projection controller, realised-share short-off, and fee-rescue were each tested against frozen v9
+on identical worlds; none improved the hard week without a larger margin cost. The honest conclusion
+is recorded above (Friday-capacity crunch; the booking model is too optimistic to give early warning).
+
+### D15. Partner-bank comparison - PILOT DONE, full table OPEN
+bt-1 pilot: frozen v9 EUR13,579 / 98.8% / ranked; accounting identity exact. The full 8-seed paired
+table needs either the partner's cached per-seed numbers or two practice slots while their
+automation is paused.
+
+### D17. Deliverables for the final - DONE
+- FINAL.md: exact launch/verification checklist for Sunday (one command: python final.py).
+- PRESENTATION.md: 5-10 slide outline with the big ideas and their measured effects.
+- NOTES.md: full evidence and the risk decision; NOTES-decisions.md: this log.
+- Runner re-verified after all code changes: final.py pre-flight PASS, test_final_rejoin ALL CHECKS
+  PASSED; shipped defaults unchanged (gate 0.30, selection 0, lane-aware pricing on).

@@ -22,8 +22,8 @@ Evidence (same seed = same world; all runs ranked):
 | panel | mean margin/week | mean on-time | worst on-time | ranked |
 |---|---|---|---|---|
 | ev-1..ev-6 (calibrated) | EUR15,042 | 95.92% | 94.6% | 6/6 |
-| vb-1..vb-6 (unseen)     | EUR14,874 | 95.27% | 90.3% | 6/6 |
-| vc-1..vc-4 (unseen)     | EUR13,079 | 95.01% | 94.3% | 4/4 |
+| vb-1..vb-6 (validation) | EUR14,874 | 95.27% | 90.3% | 6/6 |
+| vc-1..vc-4 (validation) | EUR13,079 | 95.01% | 94.3% | 4/4 |
 | all 16 test worlds      | EUR14,488 | 95.45% | 90.3% | 16/16 |
 
 => Both mission bars are cleared on every panel: mean margin EUR14.5k across 16 worlds
@@ -33,7 +33,7 @@ Per seed on the calibrated panel:
 ev-1 17,787/96.5%  ev-2 14,619/95.0%  ev-3 10,367/97.6%
 ev-4 23,764/96.7%  ev-5 14,092/94.6%  ev-6 9,621/95.2%
 
-Unseen seeds: vb-1 17,381/95.1, vb-2 10,173/90.3, vb-3 11,935/96.4, vb-4 17,310/96.4,
+Validation seeds: vb-1 17,381/95.1, vb-2 10,173/90.3, vb-3 11,935/96.4, vb-4 17,310/96.4,
 vb-5 17,276/96.5, vb-6 15,170/97.0; vc-1 14,427/96.5, vc-2 13,401/94.5, vc-3 13,918/94.7,
 vc-4 10,569/94.3.
 
@@ -51,6 +51,24 @@ Punctuality/margin frontier measured with the same code:
 | gate off, no selection     | 17,359 / 22,989 | 95.9% / 95.8% | ev-1 / ev-4 only |
 
 The shipped setting is the current money maximum that keeps on-time comfortably above 92%.
+- Risk decision (evidence-based): keep the margin-first v9 shipped. It ranked in all 16 test
+  worlds (worst 90.3% on vb-2). The punctuality-safe alternative (gate 0.15 + select bar EUR5:
+  ev 14,524 @ 97.2%, vb 13,072 @ 96.5%, vc 12,519 @ 97.0%) is a two-field change
+  (gate_pl=0.15, select_net=5.0) if a safer week is preferred; it costs ~EUR300-500/week.
+- The score is gross margin; on-time is a per-week QUALIFICATION THRESHOLD (fewer than 90% of won
+  orders on time -> not ranked). The final is one secret level-8 week on Sunday at 08:00 (set at
+  07:30); result = margin, top-10 ranked teams present to the jury, which judges elegance,
+  clarity, creativity and robustness. Practical target: rank, maximise margin, explain well.
+- Safety work (NOTES-decisions.md D14): the near-failure week was a Friday driver-capacity crunch
+  (25 of 40 lates due Friday, 23 expired gigs that day; 57 warnings, 52 still late). A
+  projection-based controller had no effect (the booking model believes unbooked orders will
+  book); an earlier-fee rescue response bought +0.7 pt for -EUR4.2k and was rejected. The realised
+  late share is the useful signal but arrives after the first damage.
+- Comparable-baseline pilot on the partner bank (seed bt-1, frozen v9): EUR13,579, 408 won, 98.8%
+  on time, ranked; the event-ledger sum equals the score margin exactly, so simulator, level
+  settings and accounting match. Partner cached per-seed baselines are not in the shared repo, so a
+  full paired bank table needs their numbers or both policies run on the bank.
+
 
 ## 2. What changed against v7, and what each change was worth (A/B on identical worlds)
 
@@ -61,7 +79,8 @@ The shipped setting is the current money maximum that keeps on-time comfortably 
 3. notes_reader.py: 100% exact on 28,503 won note orders (kit reader 90.6-98.9%, 0% recall on
    release/hours/manual/plates/tyres); audiences + pickup floor + moved deadline in pricing.
 4. Fitted P(late) (supply features refit in fit_late2.py, OOF AUC 0.789) in the margin and as a
-   gate at 0.15: this plus lane pricing is what lifted the hard seeds above 97% on time.
+   gate (0.30 shipped; 0.15 is the punctuality-safe side): this plus lane pricing is what lifted
+   the hard seeds to ~96-97% on time.
 5. Lane-aware competitor pricing (comp_from_qm=1): the quote threshold is
    exp(OnlineCompetitor.log_comp_for(ctx, trust) + QuoteModel.A_value(ctx, n_options)) instead of
    v7's single global SGD level, so the 798 persistent lane factors and the dealer trust enter
