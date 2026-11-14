@@ -892,10 +892,19 @@ def run_board(level: int, policy: Policy, runs: int = 5) -> None:
             desk, _, _ = rebuild(world, policy, road, level)
             print(f"L{level} resuming ranking run {world.id} (world {mine[0]['boardRun']}) at minute {desk.now}", flush=True)
         else:
-            try:
-                world = client.create(level=level, board=True)
-            except SpreadError as e:
-                print(f"L{level}: no ranking run to start ({e})", flush=True)
+            world = None
+            for _ in range(180):
+                try:
+                    world = client.create(level=level, board=True)
+                    break
+                except SpreadError as e:
+                    if "practice worlds that have not ended" in str(e):
+                        time.sleep(20)  # slots busy: wait, a ranking run is worth it
+                        continue
+                    print(f"L{level}: no ranking run to start ({e})", flush=True)
+                    return
+            if world is None:
+                print(f"L{level}: gave up waiting for a slot", flush=True)
                 return
             desk = None
         play_practice(world, level, policy, road, desk)
