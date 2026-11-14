@@ -104,7 +104,11 @@ class Policy:
     mid_fee_scale: float = 0.88  # levels 4-6
     regime: bool = True          # Bayesian day level + price-war mixture + outage detection (regime.py)
     price_slope: float = 10.5    # dealer price slope used with the regime learner
-    dealer_fx: bool = False      # add persistent per-dealer price effects
+    dealer_fx: bool = False
+    lanes_v9: bool = False
+    late_v9: bool = False        # P(late) from the v9 branch's archive-fitted model (74,731 orders, OOF AUC 0.79)
+    late_v9_scale: float = 1.0   # calibration multiplier on it
+    late_v9_extras: bool = True  # keep our day-capacity, edge-day, congestion and snow terms on top       # use the v9 branch's per-lane competitor factors (798 lanes, 210 worlds) instead      # add persistent per-dealer price effects
     lanes: bool = True           # use the persistent pickup/delivery price effects (lane_effects.json)
     # Multi-car gigs: one driver takes car A, then car B from near A's delivery.
     notes_v2: bool = True             # the team's note parser (notes.py) instead of the kit's keyword reader
@@ -173,6 +177,7 @@ class Dispatcher(Desk):
         self.regime = Regime(road.places, level0=math.log(comp0), first_day=now // DAY) \
             if policy.regime and level >= 8 and road.places else None
         self.lanes = json.load(open(os.path.join(ROOT, "configs", "lane_effects.json"))) if policy.lanes else None
+        self.lanes9 = json.load(open(os.path.join(ROOT, "configs", "lane_effects_v9.json"))) if policy.lanes_v9 else None
         self.fee_scale = policy.low_fee_scale if level <= 3 else policy.mid_fee_scale if level <= 6 else 1.0
         self.day_of_comp = now // DAY
         self.quoted: dict[str, tuple[float, int]] = {}  # request id -> (log ratio of cheapest quote, day)
@@ -225,6 +230,12 @@ class Dispatcher(Desk):
     # ---------- driver supply ----------
     def init_supply(self, roster: list[dict]) -> None:
         self.roster = roster
+        self.v9_model = self.v9_struct = None
+        if self.p.late_v9:
+            from bahn.models import v9_supply
+            blob = json.load(open(os.path.join(ROOT, "configs", "fits", "late2.json")))
+            self.v9_model = blob
+            self.v9_struct = v9_supply.build_supply(roster, self.road)
         self.offers_today: dict[tuple, int] = {}   # (driver, day) -> offers sent
         self.offered: dict[str, set] = {}          # gig id -> drivers already asked
         self.open_offers: dict[str, int] = {}      # gig id -> offers awaiting an answer
@@ -233,6 +244,18 @@ class Dispatcher(Desk):
             homes[d["homePlaceId"]] = homes.get(d["homePlaceId"], 0) + 1
         places = {a for a, _ in self.road.r}
         self.supply = {p: sum(n * math.exp(-self.road.minutes(h, p) / 60) for h, n in homes.items()) for p in places}
+
+    def v9_p_late(self, request: PriceRequest, option: dict) -> float:
+        """The v9 branch's fitted lateness logit on its supply features (standardised, coefficients in late2.json)."""
+        from bahn.models import v9_supply
+        outstanding = sum(1 for o in self.orders.values() if any(t is None for t in o["deliveredAt"]))
+        weather = 1.0 if self.snow_risk(request, option["deadline"]) > 0 else 0.0
+        feats = v9_supply.order_features(request, option, self.road, self.v9_struct, outstanding=outstanding, weather=weather)
+        m = self.v9_model
+        z = m["intercept"]
+        for name, mu, sc, c in zip(m["features"], m["mean"], m["scale"], m["coef"]):
+            z += c * (float(feats.get(name, 0.0)) - mu) / (sc or 1.0)
+        return 1.0 / (1.0 + math.exp(-max(-30.0, min(30.0, z))))
 
     def supply_late(self, request: PriceRequest) -> float:
         if not self.supply:
@@ -369,7 +392,12 @@ class Dispatcher(Desk):
                 fee *= p.private_fee
             if p.pair_quote and self.has_backhaul(request, o):
                 fee *= 1 - p.pair_quote
-            pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base)) + pressure)
+            if p.late_v9 and self.v9_model is not None:
+                extra = (self.congestion(request) + self.snow_risk(request, o["deadline"]) + self.day_risk(loads, o["deadline"] // DAY, nlegs)
+                         + self.edge_risk(o["deadline"], km)) if p.late_v9_extras else 0.0
+                pl = min(0.95, p.late_v9_scale * self.v9_p_late(request, o) + p.pl_scale * extra + pressure)
+            else:
+                pl = min(0.95, p.pl_scale * (step_lookup(p.p_late, slack) + p.km_late * km + max(0.0, sl - p.sup_base)) + pressure)
             best, best_x = -1e9, None
             for i in range(60):
                 x = 0.85 + i * 0.02  # price as x list
@@ -406,9 +434,19 @@ class Dispatcher(Desk):
 
     def lane_offset(self, request: PriceRequest) -> float:
         """Log price offset of the competitor on this lane, persistent across worlds (fitted on 39 worlds)."""
+        leg = request["legs"][0]
+        if self.lanes9:
+            total = 0.0
+            for l in request["legs"]:
+                a, b = l["pickup"]["placeId"], l["delivery"]["placeId"]
+                v = self.lanes9["lane_factor"].get(f"{a}>{b}")
+                if v is None:
+                    fb = self.lanes9["fallback"]
+                    v = fb.get("const", 0.0) + fb["origin"].get(a, 0.0) + fb["dest"].get(b, 0.0)
+                total += v
+            return total
         if not self.lanes:
             return 0.0
-        leg = request["legs"][0]
         off = self.lanes["pickup"].get(leg["pickup"]["placeId"], 0.0) + self.lanes["delivery"].get(leg["delivery"]["placeId"], 0.0)
         if self.p.dealer_fx:
             off += self.lanes.get("dealer", {}).get(request["dealerId"], 0.0)
